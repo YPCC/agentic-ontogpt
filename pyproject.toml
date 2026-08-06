@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-ontogpt"
+version = "0.1.0"
+description = "Agentic SPIRES / OntoGPT pipeline built with Google ADK"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "agentic-ontogpt contributors" }]
+keywords = ["ontogpt", "spires", "linkml", "adk", "agents", "bioportal", "knowledge-extraction"]
+dependencies = [
+    "google-adk>=1.0",
+    "linkml>=1.8",
+    "linkml-runtime>=1.8",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+ontogpt = ["ontogpt>=1.0", "oaklib>=0.6"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+]
+all = ["agentic-ontogpt[ontogpt,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/YPCC/agentic-ontogpt"
+Documentation = "https://github.com/YPCC/agentic-ontogpt/tree/main/docs"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*", "tools*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

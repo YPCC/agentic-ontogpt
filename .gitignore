@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Generated templates
+/tmp/
+*.yaml.bak
