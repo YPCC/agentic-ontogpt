@@ -1,0 +1,192 @@
+id: https://w3id.org/ontogpt/made_1_0
+name: made_1_0
+title: MADE 1.0 Medication and Adverse Drug Events SPIRES Schema
+description: >-
+  OntoGPT / SPIRES LinkML template for the MADE 1.0 shared task entity and
+  relation types. Nine NER types and seven relation types as defined in the
+  MADE annotation guidelines (Jagannatha et al., Drug Safety 2019).
+
+  Entity types: Drug, Dosage, Route, Duration, Frequency, Indication, ADE,
+  Severity, SSLIF.
+
+  Relation types: drug_dosage, drug_route, drug_frequency, drug_duration,
+  drug_indication (Reason), drug_ade (Adverse), severity_of (SSD-Severity).
+
+license: https://creativecommons.org/publicdomain/zero/1.0/
+version: 0.1.0
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  made: https://w3id.org/ontogpt/made_1_0/
+  bioportal: https://data.bioontology.org/ontologies/
+  MONDO: http://purl.obolibrary.org/obo/MONDO_
+  CHEBI: http://purl.obolibrary.org/obo/CHEBI_
+  DRON: http://purl.obolibrary.org/obo/DRON_
+  HP: http://purl.obolibrary.org/obo/HP_
+  NCIT: http://purl.obolibrary.org/obo/NCIT_
+  MEDDRA: http://purl.bioontology.org/ontology/MEDDRA/
+
+default_prefix: made
+default_range: string
+
+imports:
+  - linkml:types
+  - core
+
+classes:
+
+  ExtractionResult:
+    tree_root: true
+    description: Container for all MADE 1.0 entities and relations extracted from a clinical note.
+    attributes:
+      drugs:
+        range: Drug
+        multivalued: true
+      dosages:
+        range: Dosage
+        multivalued: true
+      routes:
+        range: Route
+        multivalued: true
+      durations:
+        range: Duration
+        multivalued: true
+      frequencies:
+        range: Frequency
+        multivalued: true
+      indications:
+        range: Indication
+        multivalued: true
+      ades:
+        range: ADE
+        multivalued: true
+      severities:
+        range: Severity
+        multivalued: true
+      sslifs:
+        range: SSLIF
+        multivalued: true
+      drug_dosage_relations:
+        range: DrugDosageRelation
+        multivalued: true
+      drug_route_relations:
+        range: DrugRouteRelation
+        multivalued: true
+      drug_frequency_relations:
+        range: DrugFrequencyRelation
+        multivalued: true
+      drug_duration_relations:
+        range: DrugDurationRelation
+        multivalued: true
+      drug_indication_relations:
+        range: DrugIndicationRelation
+        multivalued: true
+      drug_ade_relations:
+        range: DrugADERelation
+        multivalued: true
+      severity_relations:
+        range: SeverityRelation
+        multivalued: true
+
+  Drug:
+    is_a: NamedEntity
+    description: Medication mention including brand, generic, and abbreviations (MADE Drug/Drugname).
+    annotations:
+      annotators: bioportal:DRON, bioportal:CHEBI, bioportal:NCIT
+      prompt: The name of a drug or medication as written in the note.
+
+  Dosage:
+    is_a: NamedEntity
+    description: Amount of drug administered at one time (e.g. 8 mg).
+    annotations:
+      prompt: The dosage amount as written (e.g. 8 mg, 50mg).
+
+  Route:
+    is_a: NamedEntity
+    description: Mode of administration (e.g. oral, intravenous, p.o.).
+    annotations:
+      prompt: The route of administration (e.g. oral, p.o., IV).
+
+  Duration:
+    is_a: NamedEntity
+    description: Length of a single prescription episode.
+    annotations:
+      prompt: The duration of drug administration (e.g. for 10 days).
+
+  Frequency:
+    is_a: NamedEntity
+    description: How often the drug is taken.
+    annotations:
+      prompt: The dosing frequency (e.g. daily, every 8 hours, as needed).
+
+  Indication:
+    is_a: NamedEntity
+    description: Sign/symptom/disease that is a reason for prescribing a drug.
+    annotations:
+      annotators: bioportal:MONDO, bioportal:HP, bioportal:MEDDRA
+      prompt: The clinical indication for a drug when it is being treated by that drug.
+
+  ADE:
+    is_a: NamedEntity
+    description: Adverse drug event - sign or symptom that resulted from a drug.
+    annotations:
+      annotators: bioportal:MEDDRA, bioportal:HP, bioportal:MONDO
+      prompt: An adverse drug event or side effect caused by a medication.
+
+  Severity:
+    is_a: NamedEntity
+    description: Severity modifier (e.g. mild, severe, grade 3).
+    annotations:
+      prompt: Severity modifier (e.g. mild, moderate, severe).
+
+  SSLIF:
+    is_a: NamedEntity
+    description: Other sign, symptom, or disease that is not ADE and not Indication.
+    annotations:
+      annotators: bioportal:MONDO, bioportal:HP, bioportal:MEDDRA
+      prompt: Any other sign, symptom, or disease neither ADE nor indication.
+
+  DrugDosageRelation:
+    is_a: CompoundExpression
+    attributes:
+      drug: {range: Drug, required: true}
+      dosage: {range: Dosage, required: true}
+
+  DrugRouteRelation:
+    is_a: CompoundExpression
+    attributes:
+      drug: {range: Drug, required: true}
+      route: {range: Route, required: true}
+
+  DrugFrequencyRelation:
+    is_a: CompoundExpression
+    attributes:
+      drug: {range: Drug, required: true}
+      frequency: {range: Frequency, required: true}
+
+  DrugDurationRelation:
+    is_a: CompoundExpression
+    attributes:
+      drug: {range: Drug, required: true}
+      duration: {range: Duration, required: true}
+
+  DrugIndicationRelation:
+    is_a: CompoundExpression
+    description: Reason relation - drug prescribed for an indication.
+    attributes:
+      drug: {range: Drug, required: true}
+      indication: {range: Indication, required: true}
+
+  DrugADERelation:
+    is_a: CompoundExpression
+    description: Adverse relation - ADE caused by a drug.
+    attributes:
+      drug: {range: Drug, required: true}
+      ade: {range: ADE, required: true}
+
+  SeverityRelation:
+    is_a: CompoundExpression
+    description: Severity of an ADE, Indication, or SSLIF.
+    attributes:
+      target: {range: NamedEntity, required: true}
+      severity: {range: Severity, required: true}
