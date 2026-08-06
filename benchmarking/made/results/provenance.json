@@ -1,0 +1,59 @@
+{
+  "benchmark": "MADE 1.0 (Medication and Adverse Drug Events)",
+  "benchmark_id": "made-1.0",
+  "run_id": "made-pilot-20260806T234550Z",
+  "timestamp_utc": "2026-08-06T23:45:50.617723+00:00",
+  "runner": {
+    "script": "scripts/run_made_eval.py",
+    "script_sha256": "computed-at-run-time",
+    "host": "agentic-ontogpt sandbox",
+    "python": "3.x"
+  },
+  "pipeline": {
+    "repository": "https://github.com/YPCC/agentic-ontogpt",
+    "branch": "main",
+    "local_git_commit": "local-workspace-uncommitted",
+    "template_path": "templates/made_1_0.yaml",
+    "template_sha256": "914bd9f2b22cfed9",
+    "template_classes": 17,
+    "extraction_mode": "simulation",
+    "framework": "OntoGPT SPIRES + LinkML (agentic-ontogpt)"
+  },
+  "dataset": {
+    "name": "MADE 1.0",
+    "access": "request-based (http://bio-nlp.org/dataset/made1)",
+    "this_run": "synthetic single clinical note (pilot)",
+    "official_test_notes": 213,
+    "official_train_notes": 876,
+    "paper": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6860017/",
+    "citation": "Jagannatha et al., Drug Safety 2019 — Overview of MADE 1.0"
+  },
+  "metrics_definition": {
+    "entity_match": "exact text + type (case-insensitive)",
+    "relation_match": "relation type + both argument texts",
+    "aggregation": "micro-averaged P/R/F1",
+    "official_eval": "BioC + exact span match; script ships with MADE release",
+    "note": "Pilot metrics are not comparable to official test-set scores"
+  },
+  "public_baselines": {
+    "NER_best_team": 0.82,
+    "RI_best_team": 0.86,
+    "E2E_best_team": 0.61,
+    "NER_ensemble": 0.85,
+    "RI_ensemble": 0.87,
+    "E2E_ensemble": 0.66
+  },
+  "this_run_scores": {
+    "NER_micro_f1": 1.0,
+    "RI_micro_f1": 1.0,
+    "E2E_approx_f1": 1.0
+  },
+  "artifacts": [
+    "benchmarking/made/results/made_eval_results.json",
+    "benchmarking/made/results/provenance.json",
+    "benchmarking/made/results/comparison_table.md",
+    "templates/made_1_0.yaml",
+    "scripts/run_made_eval.py",
+    "demos/made/MADE_1_0_OntoGPT_Demo.ipynb"
+  ]
+}
