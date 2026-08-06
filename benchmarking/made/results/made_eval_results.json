@@ -1,0 +1,28 @@
+{
+  "mode": "simulation",
+  "template": "templates/made_1_0.yaml",
+  "disclaimer": "Pilot on synthetic note with MADE-faithful schema. Not comparable to official test-set scores without full MADE release.",
+  "metrics": {
+    "entities_micro": {"tp": 20, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+    "relations_micro": {"tp": 11, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+    "entities_by_type": {
+      "ADE": {"tp": 2, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Dosage": {"tp": 2, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Drug": {"tp": 5, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Frequency": {"tp": 2, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Indication": {"tp": 2, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Route": {"tp": 1, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "SSLIF": {"tp": 4, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+      "Severity": {"tp": 2, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0}
+    }
+  },
+  "e2e_approx_f1": 1.0,
+  "public_baselines": {
+    "NER_best_team": 0.82,
+    "RI_best_team": 0.86,
+    "E2E_best_team": 0.61,
+    "NER_ensemble": 0.85,
+    "RI_ensemble": 0.87,
+    "E2E_ensemble": 0.66
+  }
+}

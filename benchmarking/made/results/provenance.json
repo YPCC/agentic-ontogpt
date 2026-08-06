@@ -5,19 +5,20 @@
   "timestamp_utc": "2026-08-06T23:45:50.617723+00:00",
   "runner": {
     "script": "scripts/run_made_eval.py",
-    "script_sha256": "computed-at-run-time",
+    "script_sha256": "06331313698eca657ac6e1e77c5252fa137ab6fe7644fea6e11c4e6d0941b7de",
     "host": "agentic-ontogpt sandbox",
-    "python": "3.x"
+    "python": "3.12.3"
   },
   "pipeline": {
     "repository": "https://github.com/YPCC/agentic-ontogpt",
     "branch": "main",
     "local_git_commit": "local-workspace-uncommitted",
     "template_path": "templates/made_1_0.yaml",
-    "template_sha256": "914bd9f2b22cfed9",
+    "template_sha256": "914bd9f2b22cfed9cb91b4eb6bb6bcb54ebebd5bf2ba8c1015be37cbb2eb3961",
     "template_classes": 17,
     "extraction_mode": "simulation",
-    "framework": "OntoGPT SPIRES + LinkML (agentic-ontogpt)"
+    "framework": "OntoGPT SPIRES + LinkML (agentic-ontogpt)",
+    "github_commit_after_push": "f070ee916a55cf54d800870a44c6a46a22082b53"
   },
   "dataset": {
     "name": "MADE 1.0",
@@ -46,7 +47,9 @@
   "this_run_scores": {
     "NER_micro_f1": 1.0,
     "RI_micro_f1": 1.0,
-    "E2E_approx_f1": 1.0
+    "E2E_approx_f1": 1.0,
+    "entities_micro": {"tp": 20, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0},
+    "relations_micro": {"tp": 11, "fp": 0, "fn": 0, "precision": 1.0, "recall": 1.0, "f1": 1.0}
   },
   "artifacts": [
     "benchmarking/made/results/made_eval_results.json",
