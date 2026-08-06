@@ -7,7 +7,9 @@ LinkML / SPIRES template and notebook for the **MADE 1.0** (Medication and Adver
 | Path | Description |
 |------|-------------|
 | `MADE_1_0_OntoGPT_Demo.ipynb` | Two-phase notebook (inventory + extract/eval) |
+| `made_eval_results.json` | Latest local eval run output |
 | `../../templates/made_1_0.yaml` | OntoGPT-compliant LinkML schema |
+| `../../scripts/run_made_eval.py` | Headless eval runner |
 
 ## Entities (9)
 
@@ -20,6 +22,10 @@ Drug–Dosage, Drug–Route, Drug–Frequency, Drug–Duration, Indication–Dru
 ## Run
 
 ```bash
+# Headless
+python scripts/run_made_eval.py
+
+# Notebook
 cd demos/made
 jupyter notebook MADE_1_0_OntoGPT_Demo.ipynb
 ```
