@@ -1,4 +1,4 @@
-"""Headless pipeline runner using PipelineState (P1+P3)."""
+"""Headless pipeline runner using PipelineState (P1+P3+C1)."""
 
 from __future__ import annotations
 
@@ -74,12 +74,16 @@ def run_pipeline(
     schema = initial_schema_yaml or ""
     regen = regenerate_fn or fixture_regenerate
     seed = schema if schema else "name: empty\n"
-    repair = repair_until_valid(seed, regen, max_iterations=max_repair_iterations)
+    repair = repair_until_valid(
+        seed, regen, max_iterations=max_repair_iterations
+    )
     state.set_schema(repair.schema_yaml, from_repair=True)
     state.schema_version = repair.schema_version
     state.repair_iterations = repair.iterations
     state.repair_stopped_reason = repair.stopped_reason
     state.set_validation(repair.final_validation)
+    # C1: full revision chain from repair controller
+    state.apply_repair_history(repair.history)
     obs.mark(
         "schema_repair",
         input_tokens=estimate_tokens_from_text(state.generated_schema_yaml),
