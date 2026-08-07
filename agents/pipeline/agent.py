@@ -1,12 +1,10 @@
-"""Root pipeline agent for agentic-ontogpt (P0/P1: error-directed repair + gated extract + policy).
+"""Root pipeline agent for agentic-ontogpt (P0–P3).
 
 Orchestrates:
-  OntologySelector → (TemplateGenerator ↔ Validator)* → SPIRESExtraction
+  OntologySelector → TemplateRepairLoop (generate ↔ validate ↔ exit) → SPIRESExtraction
 
-For pure-Python early-exit repair and full state/provenance, see:
-  tools.repair.repair_until_valid
-  tools.pipeline_runner.run_pipeline
-  demos/failure_modes_repair_loop.ipynb
+Early exit: ValidationExitAgent escalates when validation_result.valid is true.
+Offline: tools.repair.repair_until_valid / tools.pipeline_runner.run_pipeline
 """
 
 from __future__ import annotations
@@ -184,11 +182,23 @@ extractor = LlmAgent(
     output_key="extraction_result",
 )
 
-repair_loop = LoopAgent(
-    name="TemplateRepairLoop",
-    sub_agents=[template_generator, validator],
-    max_iterations=3,
-)
+try:
+    from agents.pipeline.exit_agent import build_repair_loop, ADK_AVAILABLE as _EXIT_ADK
+except ImportError:
+    try:
+        from exit_agent import build_repair_loop, ADK_AVAILABLE as _EXIT_ADK
+    except ImportError:
+        build_repair_loop = None
+        _EXIT_ADK = False
+
+if build_repair_loop is not None and _EXIT_ADK:
+    repair_loop = build_repair_loop(template_generator, validator, max_iterations=3)
+else:
+    repair_loop = LoopAgent(
+        name="TemplateRepairLoop",
+        sub_agents=[template_generator, validator],
+        max_iterations=3,
+    )
 
 root_agent = SequentialAgent(
     name="OntoGPT_Full_Pipeline",
