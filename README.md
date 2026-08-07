@@ -1,3 +1,5 @@
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/9192d92a-95ce-453e-9d4a-c4ca3a496510" />
+
 # agentic-ontogpt
 
 **Agentic control layer around OntoGPT / SPIRES** — ontology selection, LinkML template generation & validation, bounded repair, gated extraction, grounding, RDF, and observability.
