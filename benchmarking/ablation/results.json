@@ -1,0 +1,9 @@
+{
+  "rows": [
+    {"config": "A", "label": "hand_authored_template", "schema_valid": true, "first_pass_valid": true, "repair_iterations": 0, "extraction_outcome": "SIMULATION_REQUESTED", "extraction_blocked": false},
+    {"config": "B", "label": "oneshot_generate_no_validate", "schema_valid": true, "first_pass_valid": true, "repair_iterations": 0, "extraction_outcome": "SIMULATION_REQUESTED", "extraction_blocked": false},
+    {"config": "C", "label": "generate_validate_once", "schema_valid": true, "first_pass_valid": true, "repair_iterations": 0, "extraction_outcome": "SIMULATION_REQUESTED", "extraction_blocked": false},
+    {"config": "D", "label": "full_agentic_policy_repair_gate", "schema_valid": true, "first_pass_valid": false, "repair_iterations": 2, "extraction_outcome": "SIMULATION_REQUESTED", "extraction_blocked": false}
+  ],
+  "note": "Simulation mode smoke; D shows first_pass_valid=false with repair_iterations=2"
+}

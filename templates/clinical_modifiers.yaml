@@ -1,0 +1,64 @@
+id: https://w3id.org/ontogpt/clinical_modifiers
+name: clinical_modifiers
+title: Clinical assertion / temporality / experiencer slots (P2)
+description: >-
+  OntoGPT-oriented schema with assertion, temporality, experiencer, certainty.
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  cm: https://w3id.org/ontogpt/clinical_modifiers/
+default_prefix: cm
+default_range: string
+imports:
+  - linkml:types
+  - core
+classes:
+  ExtractionResult:
+    tree_root: true
+    attributes:
+      clinical_statements:
+        range: ClinicalStatement
+        multivalued: true
+  ClinicalStatement:
+    is_a: NamedEntity
+    attributes:
+      id:
+        identifier: true
+        range: uriorcurie
+      label:
+        range: string
+      assertion:
+        range: AssertionEnum
+      temporality:
+        range: TemporalityEnum
+      experiencer:
+        range: ExperiencerEnum
+      certainty:
+        range: CertaintyEnum
+      span_start:
+        range: integer
+      span_end:
+        range: integer
+      source_sentence:
+        range: string
+enums:
+  AssertionEnum:
+    permissible_values:
+      present: {}
+      absent: {}
+      possible: {}
+      conditional: {}
+  TemporalityEnum:
+    permissible_values:
+      current: {}
+      historical: {}
+      future: {}
+  ExperiencerEnum:
+    permissible_values:
+      patient: {}
+      family_member: {}
+      other: {}
+  CertaintyEnum:
+    permissible_values:
+      confirmed: {}
+      suspected: {}
