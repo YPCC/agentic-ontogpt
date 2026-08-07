@@ -1,25 +1,26 @@
-# MedMentions ST21pv — Smoke benchmark results
+# MedMentions ST21pv — Smoke benchmark (50 test abstracts)
 
-**Docs:** 50 (head of official test split, 879 total)  
-**Gold mentions in sample:** 1,485
+**UTC:** 2026-08-07T00:18:15Z  
+**Method:** train-lexicon exact match (word-boundary, min freq 3, min len 4)
 
-## Micro scores
+## Results
 
-| Mode | Precision | Recall | F1 | TP/FP/FN |
-|------|-----------|--------|-----|----------|
-| oracle_gold (`--simulate-oracle`) | 1.000 | 1.000 | **1.000** | 1485/0/0 |
-| no-LLM / empty extract | 0.000 | 0.000 | **0.000** | 0/0/1485 |
+| System / mode | P | R | **F1** | Notes |
+|---------------|---|---|--------|-------|
+| TaggerOne (published) | — | — | ~0.45 | CUI linking, full test |
+| BioBERT STY (published) | — | — | ~0.64 | Semantic type |
+| Exact match CUI (literature) | — | — | ~0.38 | MedLinker paper |
+| **Train lexicon (text+ST)** | **0.320** | **0.376** | **0.346** | This run, 50 test docs |
+| Train lexicon (text only) | 0.351 | 0.414 | 0.380 | Ignore type |
+| oracle_gold | 1.000 | 1.000 | 1.000 | Plumbing only |
+| no-LLM empty | 0.000 | 0.000 | 0.000 | No OntoGPT |
 
-## vs published baselines (indicative; metric definitions differ)
+Lexicon size: **8,301** train surface forms.
 
-| System | Reported F1 | Metric notes |
-|--------|-------------|--------------|
-| TaggerOne (CUI linking) | ~0.45 | Official ST21pv concept linking |
-| BioBERT (STY) | ~0.64 | Semantic type |
-| README SOTA note (mention-level) | ~0.57 | Recognition + linking lower bound |
-| **agentic-ontogpt oracle smoke** | **1.000** | text+ST; plumbing only |
-| **agentic-ontogpt no-LLM** | **0.000** | OntoGPT not installed |
+## Real SPIRES (requires API key)
 
-> Install `ontogpt` + API key and re-run without `--simulate-oracle` for real SPIRES scores on these 50 abstracts.
-
-Dataset: Mohan & Li, AKBC 2019 — https://github.com/chanzuckerberg/MedMentions
+```bash
+pip install ontogpt oaklib
+export OPENAI_API_KEY=...
+python scripts/run_medmentions_benchmark.py --limit 50
+```

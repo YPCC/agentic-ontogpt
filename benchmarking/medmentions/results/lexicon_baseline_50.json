@@ -1,0 +1,27 @@
+{
+  "mode": "train_lexicon_wb_minfreq3_minlen4",
+  "n_docs": 50,
+  "lexicon_size": 8301,
+  "micro_text_and_type": {
+    "precision": 0.3204,
+    "recall": 0.3761,
+    "f1": 0.3460,
+    "tp": 601,
+    "fp": 1275,
+    "fn": 997
+  },
+  "micro_text_only": {
+    "precision": 0.3507,
+    "recall": 0.4141,
+    "f1": 0.3798,
+    "tp": 658,
+    "fp": 1218,
+    "fn": 931
+  },
+  "baselines_published": {
+    "TaggerOne_CUI_F1": 0.453,
+    "BioBERT_STY_F1": 0.64,
+    "MedLinker_mention_lb": 0.57,
+    "ExactMatch_CUI_literature": 0.375
+  }
+}
