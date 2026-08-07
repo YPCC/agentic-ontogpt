@@ -1,12 +1,23 @@
-"""Root pipeline agent for agentic-ontogpt.
+"""Root pipeline agent for agentic-ontogpt (P0: error-directed repair + gated extract).
 
 Orchestrates:
-  OntologySelector -> (TemplateGenerator <-> Validator)* -> SPIRESExtraction
+  OntologySelector → (TemplateGenerator ↔ Validator)* → SPIRESExtraction
+
+Repair loop notes
+-----------------
+ADK LoopAgent runs sub-agents up to max_iterations. Generator instructions
+explicitly consume validation_result from prior iterations so regeneration
+is error-directed. Extraction is blocked unless validation reports valid=true
+(tool-level gate via require_valid_schema + validation_result).
+
+For pure-Python early-exit repair, see tools.repair.repair_until_valid
+and demos/failure_modes_repair_loop.ipynb.
 """
 
 from __future__ import annotations
 
 from textwrap import dedent
+from typing import Any, Dict, Optional
 
 from google.adk.agents import LlmAgent, LoopAgent, SequentialAgent
 
@@ -14,6 +25,7 @@ try:
     from tools.bioportal import bioportal_recommend_ontology, bioportal_search_term
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
+    from tools.modes import get_adk_model
 except ImportError:
     import sys
     from pathlib import Path
@@ -22,6 +34,7 @@ except ImportError:
     from tools.bioportal import bioportal_recommend_ontology, bioportal_search_term
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
+    from tools.modes import get_adk_model
 
 
 def recommend_ontologies(entities: str) -> dict:
@@ -35,7 +48,7 @@ def search_term(query: str, ontologies: str = None) -> dict:
 
 
 def validate_schema(schema_yaml: str) -> dict:
-    """Validate a LinkML / SPIRES schema YAML string."""
+    """Run the multi-stage LinkML / OntoGPT validation ladder."""
     return validate_linkml_schema(schema_yaml)
 
 
@@ -45,26 +58,38 @@ def persist_template(schema_yaml: str, schema_name: str = "clinical_extraction")
 
 
 def extract_with_spires(
-    template_yaml: str, text: str, schema_name: str = "clinical_extraction"
+    template_yaml: str,
+    text: str,
+    schema_name: str = "clinical_extraction",
+    validation_valid: bool = True,
+    validation_message: str = "",
 ) -> dict:
-    """Run SPIRES extraction (OntoGPT) on the given text using the provided template."""
-    return run_spires_extraction(template_yaml, text, schema_name=schema_name)
+    """Run SPIRES extraction. Blocked when validation_valid is false."""
+    validation_result: Optional[Dict[str, Any]] = {
+        "valid": bool(validation_valid),
+        "message": validation_message or ("valid" if validation_valid else "validation failed"),
+    }
+    return run_spires_extraction(
+        template_yaml,
+        text,
+        schema_name=schema_name,
+        require_valid_schema=True,
+        validation_result=validation_result,
+    )
 
+
+_MODEL = get_adk_model()
 
 ontology_selector = LlmAgent(
     name="OntologySelectorAgent",
-    model="gemini-2.0-flash",
+    model=_MODEL,
     description="Selects the best BioPortal ontology for each clinical entity type.",
     instruction=dedent(
         """
         You are a biomedical ontology expert.
         Given entity types or concrete clinical terms, call recommend_ontologies
-        (and search_term if needed) and return a clear mapping:
-
-            EntityType -> OntologyAcronym
-
-        Prefer high-quality ontologies (MONDO, HP, GO, CHEBI, HGNC, NCIT, DRON, ...).
-        Always give a short justification.
+        (and search_term if needed) and return EntityType → OntologyAcronym.
+        Prefer MONDO, HP, GO, CHEBI, HGNC, NCIT, DRON. Give a short justification.
         """
     ),
     tools=[recommend_ontologies, search_term],
@@ -73,19 +98,30 @@ ontology_selector = LlmAgent(
 
 template_generator = LlmAgent(
     name="TemplateGeneratorAgent",
-    model="gemini-2.0-flash",
-    description="Generates an OntoGPT-compliant LinkML / SPIRES schema YAML.",
+    model=_MODEL,
+    description="Generates or repairs an OntoGPT-compliant LinkML / SPIRES schema YAML.",
     instruction=dedent(
         """
         You are an expert LinkML and OntoGPT schema designer.
+
         Produce a FULL valid LinkML YAML that follows OntoGPT/SPIRES conventions:
-
         - imports: linkml:types AND core
-        - entity classes: is_a: NamedEntity + annotations.annotators: bioportal:ONTOLOGY
-        - root class: tree_root: true
-        - relationships: is_a: CompoundExpression
+        - at least one entity class with is_a: NamedEntity
+        - exactly one class with tree_root: true
+        - relationships (if any): is_a: CompoundExpression
 
-        Emit ONLY the YAML (no markdown fences). You may call persist_template after.
+        Emit ONLY the YAML (no markdown fences).
+
+        ### Error-directed repair
+        If session state contains a previous validation_result and it is NOT valid:
+        - Read validation_result.errors (and stages) carefully.
+        - Preserve all parts of the prior schema that are already correct.
+        - Change ONLY what is needed to fix the reported defects.
+        - Re-emit the complete corrected YAML.
+
+        If there is no prior validation failure, generate a fresh schema from the
+        entity types / ontology map / user request.
+        You may call persist_template after emitting YAML.
         """
     ),
     tools=[persist_template],
@@ -94,12 +130,13 @@ template_generator = LlmAgent(
 
 validator = LlmAgent(
     name="ValidatorAgent",
-    model="gemini-2.0-flash",
-    description="Validates a LinkML/SPIRES schema.",
+    model=_MODEL,
+    description="Validates a LinkML/SPIRES schema via the multi-stage ladder.",
     instruction=dedent(
         """
-        Call validate_schema on the full YAML string.
-        Reply VALID if valid==true, otherwise INVALID + the error messages.
+        Call validate_schema on the FULL generated schema YAML string.
+        Report VALID if valid==true, else INVALID plus the errors list and failed stages.
+        Do not soften convention failures; they are errors.
         """
     ),
     tools=[validate_schema],
@@ -108,13 +145,20 @@ validator = LlmAgent(
 
 extractor = LlmAgent(
     name="SPIRESExtractionAgent",
-    model="gemini-2.0-flash",
-    description="Runs OntoGPT SPIRES extraction using a validated template.",
+    model=_MODEL,
+    description="Runs OntoGPT SPIRES extraction only after successful validation.",
     instruction=dedent(
         """
-        Call extract_with_spires with the validated template YAML and the clinical text.
-        Present the structured extracted_object and grounded named_entities clearly.
-        State whether real OntoGPT or simulation mode was used.
+        Before extracting, inspect validation_result from session state.
+        If validation_result.valid is false, DO NOT call extract_with_spires.
+        Reply that extraction is blocked and summarize validation errors.
+
+        If validation_result.valid is true:
+        Call extract_with_spires with template_yaml, text, validation_valid=true.
+
+        Present outcome explicitly:
+          REAL_SUCCESS | SIMULATION_REQUESTED | REAL_EXTRACTION_FAILED
+        Never treat a failure as a successful simulation.
         """
     ),
     tools=[extract_with_spires],
@@ -132,6 +176,7 @@ root_agent = SequentialAgent(
     sub_agents=[ontology_selector, repair_loop, extractor],
     description=(
         "End-to-end agentic OntoGPT pipeline: "
-        "ontology selection -> template generation/repair -> SPIRES extraction"
+        "ontology selection → error-directed template generate/validate → "
+        "gated SPIRES extraction"
     ),
 )
