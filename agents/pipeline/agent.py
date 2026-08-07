@@ -1,17 +1,12 @@
-"""Root pipeline agent for agentic-ontogpt (P0: error-directed repair + gated extract).
+"""Root pipeline agent for agentic-ontogpt (P0/P1: error-directed repair + gated extract + policy).
 
 Orchestrates:
   OntologySelector → (TemplateGenerator ↔ Validator)* → SPIRESExtraction
 
-Repair loop notes
------------------
-ADK LoopAgent runs sub-agents up to max_iterations. Generator instructions
-explicitly consume validation_result from prior iterations so regeneration
-is error-directed. Extraction is blocked unless validation reports valid=true
-(tool-level gate via require_valid_schema + validation_result).
-
-For pure-Python early-exit repair, see tools.repair.repair_until_valid
-and demos/failure_modes_repair_loop.ipynb.
+For pure-Python early-exit repair and full state/provenance, see:
+  tools.repair.repair_until_valid
+  tools.pipeline_runner.run_pipeline
+  demos/failure_modes_repair_loop.ipynb
 """
 
 from __future__ import annotations
@@ -26,6 +21,7 @@ try:
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
     from tools.modes import get_adk_model
+    from tools.ontology_policy import apply_ontology_policy as _apply_policy
 except ImportError:
     import sys
     from pathlib import Path
@@ -35,6 +31,7 @@ except ImportError:
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
     from tools.modes import get_adk_model
+    from tools.ontology_policy import apply_ontology_policy as _apply_policy
 
 
 def recommend_ontologies(entities: str) -> dict:
@@ -45,6 +42,26 @@ def recommend_ontologies(entities: str) -> dict:
 def search_term(query: str, ontologies: str = None) -> dict:
     """Search BioPortal for a clinical term."""
     return bioportal_search_term(query, ontologies=ontologies)
+
+
+def apply_policy(
+    entity_types: str,
+    user_preferences_json: str = "{}",
+    recommendations_json: str = "[]",
+) -> dict:
+    """Apply deterministic ontology policy (allow/deny + preferred-by-type)."""
+    import json
+
+    entities = [e.strip() for e in entity_types.split(",") if e.strip()]
+    try:
+        prefs = json.loads(user_preferences_json or "{}")
+    except Exception:
+        prefs = {}
+    try:
+        recs = json.loads(recommendations_json or "[]")
+    except Exception:
+        recs = []
+    return _apply_policy(entities, recommendations=recs, user_preferences=prefs)
 
 
 def validate_schema(schema_yaml: str) -> dict:
@@ -67,7 +84,8 @@ def extract_with_spires(
     """Run SPIRES extraction. Blocked when validation_valid is false."""
     validation_result: Optional[Dict[str, Any]] = {
         "valid": bool(validation_valid),
-        "message": validation_message or ("valid" if validation_valid else "validation failed"),
+        "message": validation_message
+        or ("valid" if validation_valid else "validation failed"),
     }
     return run_spires_extraction(
         template_yaml,
@@ -88,11 +106,12 @@ ontology_selector = LlmAgent(
         """
         You are a biomedical ontology expert.
         Given entity types or concrete clinical terms, call recommend_ontologies
-        (and search_term if needed) and return EntityType → OntologyAcronym.
-        Prefer MONDO, HP, GO, CHEBI, HGNC, NCIT, DRON. Give a short justification.
+        (and search_term if needed), then call apply_policy so allow/deny lists and
+        preferred-by-type rules are enforced. Return EntityType → OntologyAcronym
+        with a short justification.
         """
     ),
-    tools=[recommend_ontologies, search_term],
+    tools=[recommend_ontologies, search_term, apply_policy],
     output_key="ontology_map",
 )
 
@@ -176,7 +195,7 @@ root_agent = SequentialAgent(
     sub_agents=[ontology_selector, repair_loop, extractor],
     description=(
         "End-to-end agentic OntoGPT pipeline: "
-        "ontology selection → error-directed template generate/validate → "
+        "ontology selection + policy → error-directed template generate/validate → "
         "gated SPIRES extraction"
     ),
 )
