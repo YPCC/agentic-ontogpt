@@ -1,0 +1,44 @@
+# Deterministic ontology policy for agentic-ontogpt (P1)
+version: "0.1.0"
+
+allowlist:
+  - MONDO
+  - HP
+  - GO
+  - CHEBI
+  - DRON
+  - RXNORM
+  - NCIT
+  - SNOMEDCT
+  - HGNC
+  - NCBITAXON
+  - UBERON
+  - FMA
+  - MEDDRA
+  - LOINC
+  - FOODON
+  - OMIM
+  - ORDO
+
+denylist:
+  - STY
+
+preferred_by_entity_type:
+  disease: MONDO
+  disorder: MONDO
+  phenotype: HP
+  finding: HP
+  gene: HGNC
+  drug: DRON
+  medication: RXNORM
+  chemical: CHEBI
+  adverseevent: MEDDRA
+  ade: MEDDRA
+  anatomy: UBERON
+  procedure: NCIT
+  virus: NCBITAXON
+  bacterium: NCBITAXON
+
+min_recommender_score: 0.0
+fallback_to_preferred: true
+require_human_approval_for_new_classes: false
