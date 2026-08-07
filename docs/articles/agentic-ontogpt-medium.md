@@ -1,299 +1,393 @@
-# Agentic OntoGPT: Automating Ontology Selection, LinkML Generation, and SPIRES Extraction
+# Agentic OntoGPT: Building a Semantic Control Plane Around OntoGPT SPIRES
 
-*A semantic control plane around OntoGPT/SPIRES — policy-governed ontology choice, iterative schema engineering, explicit failure modes, and auditable runs.*
+*Automating ontology selection, LinkML generation, validation, governance, and provenance—while leaving OntoGPT SPIRES as the semantic extraction engine.*
 
-**Code:** [github.com/YPCC/agentic-ontogpt](https://github.com/YPCC/agentic-ontogpt)
-
----
-
-## The problem starts before extraction
-
-A researcher wants drugs, adverse events, and relations from a new corpus. [OntoGPT](https://github.com/monarch-initiative/ontogpt)’s **SPIRES** engine can extract them — once someone has chosen ontologies, authored a valid LinkML template, debugged load failures, and preserved enough configuration to audit the job later.
-
-SPIRES already solves **schema-guided semantic extraction**. What remains expensive is the **semantic-engineering workflow around it**.
-
-**Agentic OntoGPT** makes that workflow executable: ontology choice becomes policy-governed, schema creation becomes iterative, validation becomes a gate, failures become explicit states, and every run becomes auditable.
-
-> OntoGPT provides the extraction engine. Agentic OntoGPT is a **semantic control plane** around schema design, ontology selection, validation, repair, execution, and provenance.
+**Repository:** [github.com/YPCC/agentic-ontogpt](https://github.com/YPCC/agentic-ontogpt)
 
 ---
 
-## Conventional OntoGPT vs Agentic OntoGPT
+## Semantic extraction is only half the problem
 
-| Concern | Conventional workflow | Agentic OntoGPT |
-|---------|----------------------|-----------------|
-| Entity model | Human-defined | Agent-assisted from the extraction brief |
-| Ontology selection | Manual | BioPortal-assisted + **policy filter** |
-| Template authoring | Manual LinkML | LLM-generated under OntoGPT conventions |
-| Validation | Developer-driven | Multi-stage ladder |
-| Repair | Manual edits | Bounded, error-directed regeneration |
-| Extraction | SPIRES | SPIRES (unchanged) |
-| Failures | Ad hoc | Explicit outcomes; no silent simulation |
-| Provenance | Ad hoc | Per-run manifest |
-| Human control | External | Optional approval checkpoints |
+Most discussions of biomedical information extraction focus on the extraction model itself.
 
-### What is actually new here?
+Can a large language model identify diseases? Can it recognize medications? Can it extract relationships?
 
-The novelty is not another extraction model. SPIRES remains the engine. The experiment is whether **semantic engineering itself** can become a governed, executable pipeline: from “extract from this text” to “construct and operate a trustworthy extraction pipeline for this semantic task.”
+Those are important questions.
+
+But in practice, many production failures occur **before** the first entity is ever extracted.
+
+A researcher beginning a new extraction project must first answer questions such as:
+
+- Which ontology should represent each entity type?
+- Which LinkML schema should OntoGPT use?
+- Is the generated schema actually valid?
+- What happens if validation fails?
+- Should extraction proceed?
+- How can another researcher reproduce the same run months later?
+
+These activities are rarely discussed, yet they often consume more engineering effort than the extraction itself.
+
+OntoGPT’s SPIRES framework already provides an elegant solution for schema-guided semantic extraction.
+
+The challenge explored in this work is different.
+
+**Can the surrounding semantic engineering workflow become executable, governed, and observable?**
+
+That question led to Agentic OntoGPT.
+
+Rather than replacing SPIRES, it builds a **semantic control plane** around it.
+
+### Why now?
+
+Reliable tool use, structured outputs, and agent orchestration frameworks have only recently made it practical to automate parts of semantic engineering that previously required manual iteration. Rather than replacing OntoGPT, these capabilities allow the surrounding workflow—ontology choice, schema validation, repair, approval, and provenance—to become observable, testable, and policy-governed.
 
 ---
 
-## A complete worked trace
+## The missing layer in semantic extraction
 
-**Request**
-
-```yaml
-text: >
-  The patient developed severe neutropenia after receiving carboplatin.
-entity_types: [Medication, AdverseEvent, Severity]
-relations:
-  - medication_causes_adverse_event
-  - adverse_event_has_severity
-```
-
-**Ontology selection (after policy)**
+Traditional OntoGPT workflows generally look like this:
 
 ```text
-Medication   → RXNORM
-AdverseEvent → MEDDRA
-Severity     → NCIT
+Research question
+        │
+        ▼
+Human chooses ontologies
+        │
+        ▼
+Human writes LinkML schema
+        │
+        ▼
+Human debugs schema
+        │
+        ▼
+SPIRES extraction
+        │
+        ▼
+Structured output
 ```
 
-Denylisted sources (e.g. `STY`) are rejected even if a recommender ranks them highly. User preferences apply only when policy allows them.
+SPIRES performs exactly the task it was designed for.
 
-**Validation failure (illustrative)**
+However, everything surrounding SPIRES remains largely manual:
 
-```json
-{
-  "valid": false,
-  "validation_completeness": "invalid",
-  "errors": [
-    "OntoGPT convention: missing import 'core'",
-    "No class with tree_root: true"
-  ]
-}
+- ontology selection
+- schema authoring
+- validation
+- repair
+- governance
+- provenance
+- operational controls
+
+Agentic OntoGPT focuses on those surrounding activities.
+
+It treats semantic engineering itself as a workflow that can be executed, validated, measured, and audited.
+
+---
+
+## A semantic control plane
+
+The architecture is best understood not as “multiple agents,” but as a **semantic control plane**.
+
+![Semantic Control Plane architecture — six panels: high-level pipeline, bounded repair loop, validation ladder, selection vs grounding, execution state machine, and provenance flow](figures/semantic-control-plane-architecture.jpg)
+
+*Figure 1. Agentic OntoGPT as a semantic control plane: (1) high-level architecture with shared pipeline state, (2) bounded repair loop with early exit, (3) validation ladder, (4) ontology selection vs grounding, (5) execution state machine with explicit outcomes, (6) provenance and observability flow.*
+
+SPIRES remains the semantic extraction engine.
+
+Everything above it governs whether and how extraction occurs.
+
+Everything below it governs how extraction is interpreted, audited, and reused.
+
+---
+
+## What “agentic” means in this project
+
+The word *agentic* is often used loosely.
+
+In this project it has a specific meaning.
+
+Specialized components:
+
+- perform well-defined responsibilities,
+- operate under explicit contracts,
+- exchange structured state,
+- invoke deterministic tools,
+- evaluate intermediate artifacts,
+- revise artifacts when appropriate,
+- terminate according to bounded control logic.
+
+The workflow is intentionally constrained.
+
+It is not an open-ended autonomous planning system.
+
+Instead, it is a governed semantic pipeline that combines LLM reasoning with deterministic validation.
+
+---
+
+## A complete example
+
+Suppose a researcher wants to extract adverse drug events from biomedical literature.
+
+The request might specify:
+
+```text
+Entity Types
+- Medication
+- AdverseEvent
+- Severity
+
+Relations
+- medication_causes_adverse_event
+- adverse_event_has_severity
 ```
 
-**Repair**  
-The control loop validates, then regenerates with the **validation report** as input, and stops as soon as the schema is valid (or when the iteration budget is exhausted). Each revision is recorded (iteration, content hash, validity). The ADK path uses a `ValidationExitAgent` that escalates when `validation_result.valid` is true; the headless path uses the same early-exit controller in pure Python.
+### Step 1 – Ontology recommendation
 
-**Gate**  
-Invalid final schema → extraction blocked (`REAL_EXTRACTION_FAILED`), not replaced by a success fixture.
+The system recommends candidate ontologies for each entity category.
 
-**Outcomes**
+| Entity Type   | Candidate |
+|---------------|-----------|
+| Medication    | RxNorm    |
+| AdverseEvent  | MedDRA    |
+| Severity      | NCIt      |
+
+These recommendations are then passed through a deterministic policy engine.
+
+The policy may enforce:
+
+- organizational allowlists,
+- denylists,
+- preferred ontologies,
+- minimum recommendation scores,
+- user preferences.
+
+Ontology recommendation and ontology policy are separate concerns.
+
+### Step 2 – Template generation
+
+The template generator creates a LinkML schema compatible with OntoGPT SPIRES, including imports, entity classes, relationships, tree root, NamedEntity inheritance, and OntoGPT conventions.
+
+### Step 3 – Validation
+
+Generated YAML is never trusted blindly.
+
+It passes through a validation ladder:
+
+1. YAML syntax
+2. Required keys
+3. LinkML validation (when available)
+4. OntoGPT conventions
+5. Optional template loading
+
+Each stage produces structured output. Validation reports are first-class artifacts.
+
+### Step 4 – Repair
+
+If validation fails, the repair controller does not simply restart generation.
+
+The validation report becomes structured input to the next generation attempt. Only reported defects should be corrected while preserving valid portions of the schema.
+
+Repair proceeds within a bounded iteration budget. If validation succeeds early, the workflow exits immediately. If it never succeeds, extraction is blocked.
+
+### Step 5 – Explicit execution states
+
+> **Engineering principle:** Explicit failure is preferable to implicit success.
 
 | Outcome | Meaning |
 |---------|---------|
-| `REAL_SUCCESS` | Real SPIRES path completed |
-| `SIMULATION_REQUESTED` | Explicit `AGENTIC_ONTOGPT_MODE=simulation` |
-| `REAL_EXTRACTION_FAILED` | Real error or schema gate |
+| `REAL_SUCCESS` | SPIRES completed successfully |
+| `SIMULATION_REQUESTED` | Explicit simulation mode |
+| `REAL_EXTRACTION_FAILED` | Validation or execution failure |
 
-Simulation is for CI and demos. It is not an extraction-quality metric.
-
-**Grounding (separate step)**  
-Selection chose RXNORM for the *type* Medication. Grounding resolves the *span* `"carboplatin"` to a concept identifier. Those are different decisions.
-
----
-
-## What “agentic” means here
-
-Specialized components operate under **separate contracts**, call **purpose-specific tools**, share **structured state**, evaluate intermediate artifacts, and **revise** them before downstream execution.
-
-The pipeline is **bounded and mostly sequential**. It does not claim open-ended autonomous planning. “Agentic” here means tool-using, stateful revision under policy — a control plane, not unconstrained agency.
-
----
-
-## Semantic control plane
-
-```text
-            SEMANTIC CONTROL PLANE
-┌──────────────────────────────────────────┐
-│ Ontology policy                          │
-│ Schema generation + error-directed repair│
-│ Validation ladder + completeness         │
-│ Human approval (headless; ADK pattern)   │
-│ Provenance + observability               │
-└──────────────────┬───────────────────────┘
-                   │ governed template
-                   ▼
-             SPIRES execution
-                   │
-                   ▼
-        grounded semantic artifacts
-        (RDF-exportable when configured)
-```
-
-**Two runtimes, one contract:** Google ADK agents for interactive workflows; `run_pipeline()` for tests and CI without ADK.
-
-ADK orchestration models and SPIRES models are separately configurable (`ADK_LLM_MODEL`, `SPIRES_LLM_MODEL`).
-
-### Shared state
-
-```yaml
-pipeline_state:
-  source_text: string
-  selected_ontologies: {type: acronym}
-  generated_schema_yaml: string
-  schema_version: integer
-  schema_history: [{iteration, sha256, valid, ...}]  # full repair chain
-  validation_report: object  # includes validation_completeness
-  extraction_result: object  # outcome enum
-  grounding_report: object
-  provenance_manifest: object
-  execution_mode: real | simulation
-```
-
-Optional **human approval** checkpoints run in the headless pipeline after ontology selection and after schema validation (`APPROVAL_MODE=auto|require|reject`). That is the control pattern for equivalent interactive ADK deployment.
-
----
-
-## Validation ladder
-
-1. YAML syntax  
-2. Required keys (`id`, `name`, `imports`, `classes`)  
-3. LinkML metamodel (`linkml validate` when the CLI is available)  
-4. OntoGPT conventions (`linkml:types`, `core`, `NamedEntity`, `tree_root`) — **hard fail**  
-5. Optional OntoGPT template load when installed  
-
-When the LinkML CLI is unavailable, the metamodel stage is recorded as **skipped** (with a warning), not as a silent pass. OntoGPT convention checks still gate validity. Results distinguish:
-
-| `validation_completeness` | Meaning |
-|---------------------------|---------|
-| `full` | All stages ran and passed |
-| `partial` | Valid, but some optional stages skipped |
-| `invalid` | Hard errors present |
+Simulation is never used silently to hide production failures.
 
 ---
 
 ## Ontology selection is not ontology grounding
 
+These concepts answer different questions.
+
 | Decision | Question |
 |----------|----------|
-| **Selection** | Which vocabulary fits this entity *type*? |
-| **Grounding** | Which *concept* does this span denote? |
+| **Ontology selection** | Which vocabulary should represent this entity *type*? |
+| **Ontology grounding** | Which *concept* does this specific mention refer to? |
 
-Policy enforces allowlists, denylists, preferred-by-type maps, and minimum recommender scores. BioPortal helps source fitness; it does not by itself resolve every ambiguous mention.
+Selecting RxNorm for medications does not determine which RxNorm concept corresponds to the text “carboplatin.”
+
+**Selection chooses the vocabulary. Grounding resolves the mention.**
+
+Separating these responsibilities simplifies both evaluation and governance.
 
 ---
 
-## Clinical context beyond entity lists
+## Clinical semantics require more than entities
 
-Binary edges alone are unsafe for:
+Entity extraction alone is insufficient for clinical text.
+
+Consider:
 
 > “The patient denies rash, but her mother previously developed a rash after penicillin.”
 
-A clinical-modifiers schema carries **assertion**, **temporality**, **experiencer**, **certainty**, and span fields. That does not solve clinical NLP; it refuses to pretend entity lists alone are sufficient.
+Simply extracting *penicillin* and *rash* loses essential meaning.
+
+Clinical interpretation depends on additional dimensions such as:
+
+- assertion
+- temporality
+- experiencer
+- certainty
+
+The project includes schemas capable of representing these modifiers alongside extracted entities.
+
+This is not a complete clinical reasoning system. It is recognition that semantic correctness extends beyond entity recognition.
 
 ---
 
-## Evaluation
+## Measuring the right things
 
-### Control-flow ablation harness
+End-to-end F1 tells only part of the story.
 
-| Config | Meaning |
-|--------|---------|
-| **A** | Hand-authored template |
-| **B** | One-shot generate |
-| **C** | Generate + validate once |
-| **D** | Policy + validate + repair + gate |
+A governed extraction pipeline introduces intermediate components that deserve independent evaluation.
 
-The offline A–D suite tests **validation, gating, repair, and policy behavior** with deterministic fixtures. It is a **control-flow ablation**, not yet a model-quality study. A real-model ablation (identical prompts and data across one-shot, validate-once, and repair-loop) is the natural next empirical step.
+| Component | Example metrics |
+|-----------|-----------------|
+| Ontology recommendation | Coverage, policy compliance |
+| Template generation | First-pass validity |
+| Repair | Success rate, iterations |
+| Validation | Failure distribution |
+| Grounding | Precision, Recall, F1 |
+| Operations | Latency, cost, API calls |
 
-Deterministic smoke tests verify the repair controller, validation gate, and state transitions — including the full schema revision history. Separately, the ADK generator is instructed to perform error-directed LLM repair from the validation report.
-
-### Grounding smoke (MedMentions-style)
-
-**Protocol:** linking given gold spans; exact CUI match after normalization.
-
-On a **50-abstract** subset, the offline train-lexicon baseline achieved:
-
-| Metric | Value |
-|--------|------:|
-| Precision | 0.786 |
-| Recall | 0.449 |
-| F1 | 0.571 |
-
-High precision with lower recall is expected for a majority-CUI surface lexicon. This is a **plumbing baseline**, not a state-of-the-art entity-linking claim. Literature systems (different tasks, splits, and matching rules) provide context, not a controlled head-to-head.
-
-### Component metrics
-
-Selection coverage, first-pass vs repaired validity, repair iterations, extraction outcome mix, grounding rate, and stage latency/cost estimates are first-class — not only end-to-end F1.
+The repository also includes deterministic control-flow ablations comparing progressively richer pipeline configurations. These evaluate the workflow itself rather than claiming state-of-the-art extraction performance.
 
 ---
 
-## Provenance
+## Provenance matters
 
-Runs record pipeline version, git commit when available, model ids, package versions, source and schema hashes, **schema revision history**, validation completeness, extraction outcome, and environment flags.
+Reproducing an LLM workflow requires more than saving prompts.
 
-**Reproducibility** means reconstructable execution context and measurable repeatability — not byte-identical LLM output across providers and temperatures.
+Each execution records contextual information such as:
 
-Structured results are **RDF-exportable** (Turtle; SHACL via `pyshacl` or a documented structural fallback). Export paths exist; production knowledge-graph governance is not claimed as finished.
+- pipeline version,
+- git revision,
+- execution mode,
+- selected ontologies,
+- schema fingerprint,
+- validation status,
+- repair iterations,
+- extraction outcome,
+- model configuration.
 
----
+This does not guarantee identical future outputs. Language models evolve. Ontologies evolve. Prompts evolve.
 
-## Limitations and safety
-
-- Not a clinical decision-support system; outputs need independent validation.  
-- Do not send PHI to external LLM or ontology APIs without institutional controls.  
-- Ontology grounding is not clinical truth.  
-- Simulation fixtures are not quality measurements.  
-- Smoke subsets and synthetic notes are not real-world performance evidence.
-
----
-
-## Try it
-
-```bash
-git clone https://github.com/YPCC/agentic-ontogpt.git
-cd agentic-ontogpt
-python -m venv .venv && source .venv/bin/activate
-pip install pyyaml requests linkml pytest
-cp .env.example .env
-python -m pytest tests/ -q
-
-export AGENTIC_ONTOGPT_MODE=simulation
-python -c "
-from tools.pipeline_runner import run_pipeline
-s = run_pipeline(
-  'Patient developed severe neutropenia after carboplatin.',
-  ['Medication', 'AdverseEvent'],
-  ontology_preferences={'Medication': 'RXNORM', 'AdverseEvent': 'MEDDRA'})
-print(s.selected_ontologies)
-print(s.validation_report.get('validation_completeness'))
-print(len(s.schema_history), 'schema revisions')
-print(s.extraction_result.get('outcome'))
-"
-
-python scripts/run_ablation.py --mode simulation
-python scripts/run_grounding_benchmark.py --limit 50 --mode lexicon
-```
+Provenance makes those changes **visible and reconstructable**.
 
 ---
 
-## Roadmap
+## From structured extraction toward knowledge graphs
 
-Entity-type-scoped recommender lists; real-model ablations; stronger grounding than first-hit Annotator; ontology release pinning in manifests; fuller SHACL libraries; cost-aware routing between deterministic NLP and SPIRES.
+Extraction results can be serialized toward RDF.
 
-**Design principle:** human-readable failure modes over silent success.
+When configured, structural validation and SHACL checking can be applied before downstream knowledge graph ingestion.
+
+The project aims to produce semantic artifacts that can participate in broader knowledge graph workflows rather than remaining isolated JSON outputs.
+
+---
+
+## Design principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| Explicit states | `REAL_SUCCESS` / `SIMULATION_REQUESTED` / `REAL_EXTRACTION_FAILED` |
+| Deterministic governance | Ontology policy engine |
+| Validation before execution | Extraction gate |
+| Human oversight | Optional approval checkpoints |
+| Auditability | Provenance manifests |
+| Separation of concerns | Selection distinct from grounding |
+
+Together these principles shift semantic extraction from an isolated inference task toward an observable engineering workflow.
+
+---
+
+## Current scope
+
+The repository should be viewed as an architectural prototype.
+
+**It demonstrates:**
+
+- ontology recommendation and policy,
+- bounded template repair,
+- validation gating,
+- explicit execution outcomes,
+- shared pipeline state,
+- provenance,
+- grounding workflows,
+- RDF export,
+- operational instrumentation.
+
+**It does not yet claim:**
+
+- state-of-the-art biomedical extraction,
+- autonomous semantic engineering,
+- production-scale clinical deployment,
+- complete reproducibility across evolving LLMs.
+
+Those remain future research directions.
+
+---
+
+## Looking ahead
+
+Near-term priorities include:
+
+- broader empirical evaluation,
+- richer grounding strategies,
+- ontology version pinning,
+- expanded SHACL libraries,
+- confidence estimation,
+- cost-aware routing,
+- larger corpus benchmarks.
+
+The broader research question remains unchanged:
+
+**Can semantic engineering itself become executable?**
 
 ---
 
 ## Conclusion
 
-The unit of automation moves from filling slots in a hand-written template to **operating a governed semantic pipeline**: policy, iteration, gates, outcomes, and audit trails around an extraction engine that already works.
+The interesting question is no longer only whether a language model can populate a hand-written schema.
 
-That is the contribution of Agentic OntoGPT — a semantic control plane around SPIRES, demonstrated as a prototype you can run, inspect, and extend.
+The more consequential question is whether the entire semantic engineering workflow can become governed, observable, and reproducible.
+
+OntoGPT SPIRES already provides a powerful semantic extraction engine.
+
+Agentic OntoGPT explores the layer around it:
+
+- selecting ontologies,
+- generating schemas,
+- validating artifacts,
+- repairing failures,
+- governing execution,
+- recording provenance,
+- producing auditable semantic outputs.
+
+The contribution is not another extraction model.
+
+It is a **semantic control plane** for schema-guided biomedical extraction.
+
+As semantic AI systems continue moving toward production environments, that control plane may ultimately prove just as important as the extraction engine itself.
 
 ---
 
 ## References
 
-- OntoGPT / SPIRES — https://github.com/monarch-initiative/ontogpt  
-- LinkML — https://linkml.io/  
-- BioPortal — https://data.bioontology.org/documentation  
-- MedMentions — https://github.com/chanzuckerberg/MedMentions  
-- MADE 1.0 — https://pmc.ncbi.nlm.nih.gov/articles/PMC6860017/  
-- Google ADK — https://google.github.io/adk-docs/  
-- Implementation — https://github.com/YPCC/agentic-ontogpt  
+- OntoGPT / SPIRES — https://github.com/monarch-initiative/ontogpt
+- LinkML — https://linkml.io/
+- BioPortal — https://data.bioontology.org/documentation
+- MedMentions — https://github.com/chanzuckerberg/MedMentions
+- MADE 1.0 — https://pmc.ncbi.nlm.nih.gov/articles/PMC6860017/
+- Google ADK — https://google.github.io/adk-docs/
+- Implementation — https://github.com/YPCC/agentic-ontogpt
 
 *Architectural prototype — not medical advice; not for clinical decisions without independent validation.*
