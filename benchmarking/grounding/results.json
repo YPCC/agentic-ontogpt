@@ -1,0 +1,17 @@
+{
+  "n_docs": 50,
+  "protocol": "Linking given gold spans (text, CUI) exact match after CUI normalization.",
+  "modes": {
+    "lexicon": {
+      "instance_micro": {
+        "precision": 0.7856,
+        "recall": 0.4486,
+        "f1": 0.5711,
+        "tp": 667,
+        "fp": 182,
+        "fn": 820
+      }
+    }
+  },
+  "note": "Train-lexicon majority CUI map; offline. Use --mode bioportal with BIOPORTAL_API_KEY for live Annotator."
+}
