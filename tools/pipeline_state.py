@@ -34,6 +34,9 @@ class PipelineState:
     repair_stopped_reason: str = ""
     extraction_result: Dict[str, Any] = field(default_factory=dict)
     extraction_blocked: bool = False
+    grounding_report: Dict[str, Any] = field(default_factory=dict)
+    component_metrics: Dict[str, Any] = field(default_factory=dict)
+    rdf_export: Dict[str, Any] = field(default_factory=dict)
     execution_mode: str = "real"
     adk_model: str = ""
     spires_model: str = ""
@@ -51,12 +54,46 @@ class PipelineState:
         self.generated_schema_yaml = yaml_text
         if from_repair or prev:
             self.schema_version += 1
-        self.schema_history.append({
-            "version": self.schema_version,
-            "sha256": _sha256_text(yaml_text),
-            "length": len(yaml_text or ""),
-            "at": _utc_now(),
-        })
+        self.schema_history.append(
+            {
+                "version": self.schema_version,
+                "sha256": _sha256_text(yaml_text),
+                "length": len(yaml_text or ""),
+                "at": _utc_now(),
+            }
+        )
+        self.touch()
+
+    def apply_repair_history(self, history: list) -> None:
+        """Load full repair chain into schema_history (iteration, sha256, validation)."""
+        self.schema_history = []
+        for step in history or []:
+            if hasattr(step, "schema_yaml"):
+                yaml_text = step.schema_yaml
+                iteration = step.iteration
+                validation = step.validation
+            else:
+                yaml_text = step.get("schema_yaml", "")
+                iteration = step.get("iteration", 0)
+                validation = step.get("validation") or {}
+            self.schema_history.append(
+                {
+                    "iteration": iteration,
+                    "version": iteration,
+                    "sha256": _sha256_text(yaml_text),
+                    "length": len(yaml_text or ""),
+                    "valid": bool((validation or {}).get("valid")),
+                    "validation_completeness": (validation or {}).get(
+                        "validation_completeness"
+                    ),
+                    "errors": (validation or {}).get("errors") or [],
+                    "at": _utc_now(),
+                }
+            )
+        if self.schema_history:
+            self.schema_version = max(
+                h.get("version", 0) for h in self.schema_history
+            )
         self.touch()
 
     def set_validation(self, report: Dict[str, Any]) -> None:
@@ -92,6 +129,7 @@ def new_pipeline_state(
     execution_mode: str = "real",
 ) -> PipelineState:
     from .modes import get_adk_model, get_spires_model, get_execution_mode
+
     mode = get_execution_mode(execution_mode).value
     run_id = f"run-{_utc_now().replace(':', '').replace('+', 'Z')[:18]}"
     return PipelineState(
