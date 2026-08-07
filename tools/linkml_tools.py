@@ -8,6 +8,8 @@ Validation stages (ladder):
   5. OntoGPT template load (when ontogpt is installed)
 
 Convention failures set valid=False (they are not soft-passed).
+Skipped optional stages (no CLI / no ontogpt) are recorded as skipped,
+not as ok=True. validation_completeness is full | partial | invalid.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ def save_template_yaml(
     schema_name: str = "clinical_extraction",
     out_dir: str = "/tmp/ontogpt_templates",
 ) -> Dict[str, Any]:
+    """Persist a generated LinkML YAML to disk."""
     path = Path(out_dir)
     path.mkdir(parents=True, exist_ok=True)
     target = path / f"{schema_name}.yaml"
@@ -32,11 +35,32 @@ def save_template_yaml(
     return {"status": "success", "path": str(target), "schema_name": schema_name}
 
 
-def _stage(name: str, ok: bool, messages: Optional[List[str]] = None) -> Dict[str, Any]:
-    return {"stage": name, "ok": ok, "messages": messages or []}
+def _stage(
+    name: str,
+    ok: Optional[bool],
+    messages: Optional[List[str]] = None,
+    *,
+    skipped: bool = False,
+) -> Dict[str, Any]:
+    """ok=True pass, ok=False fail, ok=None + skipped=True for unavailable tools."""
+    return {
+        "stage": name,
+        "ok": ok,
+        "skipped": skipped,
+        "messages": messages or [],
+    }
 
 
 def validate_linkml_schema(schema_yaml: str) -> Dict[str, Any]:
+    """Run the multi-stage validation ladder on a schema YAML string.
+
+    Returns:
+      valid: bool — True if no hard errors (skipped optional stages allowed)
+      validation_completeness: full | partial | invalid
+      skipped_stages: stages not run (tool unavailable)
+      stages: list of per-stage results (ok True/False/None; skipped flag)
+      errors / warnings / status / message
+    """
     stages: List[Dict[str, Any]] = []
     errors: List[str] = []
     warnings: List[str] = []
@@ -70,7 +94,14 @@ def validate_linkml_schema(schema_yaml: str) -> Dict[str, Any]:
         stages.append(_stage("linkml_metamodel", False, cli_msgs))
         errors.extend(cli_msgs)
     else:
-        stages.append(_stage("linkml_metamodel", True, ["linkml CLI not available; skipped"]))
+        stages.append(
+            _stage(
+                "linkml_metamodel",
+                None,
+                ["linkml CLI not available; skipped metamodel check"],
+                skipped=True,
+            )
+        )
         warnings.append("linkml CLI not available; metamodel stage skipped")
 
     conv_errs, conv_warns = _check_ontogpt_conventions(data)
@@ -88,18 +119,44 @@ def validate_linkml_schema(schema_yaml: str) -> Dict[str, Any]:
         stages.append(_stage("ontogpt_template_load", False, load_msgs))
         errors.extend(load_msgs)
     else:
-        stages.append(_stage("ontogpt_template_load", True, ["ontogpt not installed; skipped"]))
+        stages.append(
+            _stage(
+                "ontogpt_template_load",
+                None,
+                ["ontogpt not installed; template-load stage skipped"],
+                skipped=True,
+            )
+        )
         warnings.append("ontogpt not installed; template-load stage skipped")
 
-    return _finalize(len(errors) == 0, stages, errors, warnings)
+    valid = len(errors) == 0
+    return _finalize(valid, stages, errors, warnings)
 
 
-def _finalize(valid, stages, errors, warnings):
+def _finalize(
+    valid: bool,
+    stages: List[Dict[str, Any]],
+    errors: List[str],
+    warnings: List[str],
+) -> Dict[str, Any]:
+    skipped = [s["stage"] for s in stages if s.get("skipped")]
+    failed = [s["stage"] for s in stages if s.get("ok") is False]
+    if not valid or failed:
+        completeness = "invalid"
+    elif skipped:
+        completeness = "partial"
+    else:
+        completeness = "full"
     return {
         "status": "success" if valid else "error",
         "valid": valid,
+        "validation_completeness": completeness,
+        "skipped_stages": skipped,
         "message": (
-            "Schema passed validation ladder."
+            (
+                "Schema passed validation ladder"
+                + (f" (partial; skipped: {skipped})" if completeness == "partial" else ".")
+            )
             if valid
             else "; ".join(errors) or "Validation failed"
         ),
@@ -109,13 +166,17 @@ def _finalize(valid, stages, errors, warnings):
     }
 
 
-def _linkml_cli_validate(schema_yaml: str):
+def _linkml_cli_validate(schema_yaml: str) -> tuple:
+    """Returns (True|False|None, messages). None = CLI unavailable."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write(schema_yaml)
         tmp = f.name
     try:
         result = subprocess.run(
-            ["linkml", "validate", tmp], capture_output=True, text=True, timeout=25
+            ["linkml", "validate", tmp],
+            capture_output=True,
+            text=True,
+            timeout=25,
         )
         if result.returncode == 0:
             return True, []
@@ -129,8 +190,9 @@ def _linkml_cli_validate(schema_yaml: str):
         Path(tmp).unlink(missing_ok=True)
 
 
-def _check_ontogpt_conventions(data: dict):
-    errors, warnings = [], []
+def _check_ontogpt_conventions(data: dict) -> tuple:
+    errors: List[str] = []
+    warnings: List[str] = []
     imports = data.get("imports") or []
     import_str = " ".join(str(i) for i in imports)
     if "linkml:types" not in import_str and "types" not in import_str:
@@ -147,7 +209,8 @@ def _check_ontogpt_conventions(data: dict):
     if not has_named:
         errors.append("No class with is_a: NamedEntity (required for grounding)")
     roots = [
-        name for name, c in classes.items()
+        name
+        for name, c in classes.items()
         if isinstance(c, dict) and c.get("tree_root") is True
     ]
     if not roots:
@@ -157,7 +220,7 @@ def _check_ontogpt_conventions(data: dict):
     return errors, warnings
 
 
-def _try_ontogpt_template_load(schema_yaml: str):
+def _try_ontogpt_template_load(schema_yaml: str) -> tuple:
     try:
         from ontogpt.io.template_loader import get_template_details  # type: ignore
     except Exception:
