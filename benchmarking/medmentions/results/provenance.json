@@ -1,0 +1,37 @@
+{
+  "benchmark": "MedMentions ST21pv",
+  "benchmark_id": "medmentions-st21pv",
+  "run_id": "mm-st21pv-smoke50",
+  "timestamp_utc": "2026-08-06T23:58:00Z",
+  "runner": {
+    "script": "scripts/run_medmentions_benchmark.py",
+    "args": {"limit": 50, "simulate_oracle": true}
+  },
+  "pipeline": {
+    "repository": "https://github.com/YPCC/agentic-ontogpt",
+    "branch": "main",
+    "framework": "OntoGPT SPIRES + LinkML (agentic-ontogpt)",
+    "template_path": "templates/medmentions_st21pv.yaml",
+    "entity_config": "configs/medmentions_st21pv_entities.yaml",
+    "extraction_mode": "oracle_gold | simulation:no ontogpt"
+  },
+  "dataset": {
+    "name": "MedMentions ST21pv",
+    "source": "https://github.com/chanzuckerberg/MedMentions",
+    "n_docs_this_run": 50,
+    "n_docs_full_test": 879,
+    "n_docs_corpus": 4392,
+    "gold_mentions_in_sample": 1485,
+    "license": "CC0",
+    "citation": "Mohan & Li, AKBC 2019"
+  },
+  "scores": {
+    "oracle_micro_f1": 1.0,
+    "no_llm_micro_f1": 0.0
+  },
+  "baselines_published": {
+    "TaggerOne_CUI_F1": 0.453,
+    "BioBERT_STY_F1": 0.64,
+    "MedLinker_mention_lb": 0.57
+  }
+}

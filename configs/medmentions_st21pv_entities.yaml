@@ -1,0 +1,182 @@
+dataset: MedMentions
+subset: ST21pv
+source: https://github.com/chanzuckerberg/MedMentions
+ontology_primary: UMLS 2017AA Active (ST21pv subset)
+task: Named Entity Recognition + Linking (mention to UMLS CUI + semantic type)
+docs: 4392
+mentions_approx: 203282
+splits:
+  train: 2635
+  dev: 878
+  test: 879
+entity_ontology_map:
+  - code: T005
+    name: Virus
+    entity_label: Virus
+    ontologies: [NCBITAXON]
+    bioportal: NCBITAXON
+  - code: T007
+    name: Bacterium
+    entity_label: Bacterium
+    ontologies: [NCBITAXON]
+    bioportal: NCBITAXON
+  - code: T017
+    name: Anatomical Structure
+    entity_label: AnatomicalStructure
+    ontologies: [FMA, UBERON]
+    bioportal: FMA
+  - code: T022
+    name: Body System
+    entity_label: BodySystem
+    ontologies: [FMA, UBERON]
+    bioportal: FMA
+  - code: T031
+    name: Body Substance
+    entity_label: BodySubstance
+    ontologies: [FMA, UBERON]
+    bioportal: FMA
+  - code: T033
+    name: Finding
+    entity_label: Finding
+    ontologies: [HPO, SNOMEDCT]
+    bioportal: HP
+  - code: T037
+    name: Injury or Poisoning
+    entity_label: InjuryOrPoisoning
+    ontologies: [SNOMEDCT, ICD10CM]
+    bioportal: SNOMEDCT
+  - code: T038
+    name: Biologic Function
+    entity_label: BiologicFunction
+    ontologies: [GO, SNOMEDCT]
+    bioportal: GO
+  - code: T058
+    name: Health Care Activity
+    entity_label: HealthCareActivity
+    ontologies: [SNOMEDCT, CPT]
+    bioportal: SNOMEDCT
+  - code: T062
+    name: Research Activity
+    entity_label: ResearchActivity
+    ontologies: [NCIT, SNOMEDCT]
+    bioportal: NCIT
+  - code: T074
+    name: Medical Device
+    entity_label: MedicalDevice
+    ontologies: [SNOMEDCT, NCIT]
+    bioportal: SNOMEDCT
+  - code: T082
+    name: Spatial Concept
+    entity_label: SpatialConcept
+    ontologies: [SNOMEDCT]
+    bioportal: SNOMEDCT
+  - code: T091
+    name: Biomedical Occupation or Discipline
+    entity_label: OccupationOrDiscipline
+    ontologies: [NCIT]
+    bioportal: NCIT
+  - code: T092
+    name: Organization
+    entity_label: Organization
+    ontologies: [NCIT]
+    bioportal: NCIT
+  - code: T097
+    name: Professional or Occupational Group
+    entity_label: ProfessionalGroup
+    ontologies: [NCIT, SNOMEDCT]
+    bioportal: NCIT
+  - code: T098
+    name: Population Group
+    entity_label: PopulationGroup
+    ontologies: [NCIT, SNOMEDCT]
+    bioportal: NCIT
+  - code: T103
+    name: Chemical
+    entity_label: Chemical
+    ontologies: [CHEBI, DRON, RXNORM]
+    bioportal: CHEBI
+  - code: T168
+    name: Food
+    entity_label: Food
+    ontologies: [FOODON]
+    bioportal: FOODON
+  - code: T170
+    name: Intellectual Product
+    entity_label: IntellectualProduct
+    ontologies: [NCIT]
+    bioportal: NCIT
+  - code: T201
+    name: Clinical Attribute
+    entity_label: ClinicalAttribute
+    ontologies: [SNOMEDCT, LOINC]
+    bioportal: SNOMEDCT
+  - code: T204
+    name: Eukaryote
+    entity_label: Eukaryote
+    ontologies: [NCBITAXON]
+    bioportal: NCBITAXON
+preferred_vocabularies:
+  - CPT
+  - FMA
+  - GO
+  - HGNC
+  - HPO
+  - ICD10
+  - ICD10CM
+  - ICD9CM
+  - MDR
+  - MSH
+  - MTH
+  - NCBI
+  - NCI
+  - NDDF
+  - NDFRT
+  - OMIM
+  - RXNORM
+  - SNOMEDCT_US
+agent_input:
+  entities:
+    - Virus
+    - Bacterium
+    - AnatomicalStructure
+    - BodySystem
+    - BodySubstance
+    - Finding
+    - InjuryOrPoisoning
+    - BiologicFunction
+    - HealthCareActivity
+    - ResearchActivity
+    - MedicalDevice
+    - SpatialConcept
+    - OccupationOrDiscipline
+    - Organization
+    - ProfessionalGroup
+    - PopulationGroup
+    - Chemical
+    - Food
+    - IntellectualProduct
+    - ClinicalAttribute
+    - Eukaryote
+  ontology_preferences:
+    Virus: NCBITAXON
+    Bacterium: NCBITAXON
+    AnatomicalStructure: FMA
+    BodySystem: FMA
+    BodySubstance: FMA
+    Finding: HP
+    InjuryOrPoisoning: SNOMEDCT
+    BiologicFunction: GO
+    HealthCareActivity: SNOMEDCT
+    ResearchActivity: NCIT
+    MedicalDevice: SNOMEDCT
+    SpatialConcept: SNOMEDCT
+    OccupationOrDiscipline: NCIT
+    Organization: NCIT
+    ProfessionalGroup: NCIT
+    PopulationGroup: NCIT
+    Chemical: CHEBI
+    Food: FOODON
+    IntellectualProduct: NCIT
+    ClinicalAttribute: SNOMEDCT
+    Eukaryote: NCBITAXON
+  notes: Use ST21pv subset for IR-oriented eval; ground via UMLS CUI when possible.

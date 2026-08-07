@@ -1,0 +1,32 @@
+id: https://w3id.org/ontogpt/medmentions_st21pv
+name: medmentions_st21pv
+title: MedMentions ST21pv SPIRES Schema (semantic-type NER)
+description: >-
+  OntoGPT template for MedMentions ST21pv-style extraction. Mentions are typed
+  by UMLS Semantic Type (21 types). Full CUI linking is optional/post-processing.
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  mm: https://w3id.org/ontogpt/medmentions_st21pv/
+  UMLS: https://uts.nlm.nih.gov/uts/umls/concept/
+default_prefix: mm
+default_range: string
+imports:
+  - linkml:types
+  - core
+classes:
+  ExtractionResult:
+    tree_root: true
+    attributes:
+      mentions:
+        range: Mention
+        multivalued: true
+  Mention:
+    is_a: NamedEntity
+    attributes:
+      semantic_type:
+        range: string
+        description: UMLS ST code or name (e.g. T038 or BiologicFunction)
+      cui:
+        range: string
+        description: Optional UMLS CUI
