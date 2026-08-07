@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>agentic-ontogpt observability</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 2rem; background: #0b1020; color: #e8eefc; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; }
+th, td { border: 1px solid #2a3555; padding: 0.5rem 0.75rem; text-align: left; }
+th { background: #151c33; }
+.stack { background: #151c33; border-radius: 6px; overflow: hidden; margin-bottom: 1rem; }
+.bar { background: linear-gradient(90deg,#3b82f6,#06b6d4); padding: 0.35rem 0.5rem;
+       margin: 2px 0; font-size: 12px; white-space: nowrap; }
+h1 { font-size: 1.4rem; } h3 { font-size: 1rem; color: #93c5fd; }
+</style></head><body>
+<h1>agentic-ontogpt observability — grounding benchmark</h1>
+<p>50 MedMentions test docs · lexicon mode · instance F1 ≈ 0.57</p>
+<table>
+<thead><tr><th>Run</th><th>Total s</th><th>In tok</th><th>Out tok</th><th>API calls</th><th>Est. USD</th><th>Stages</th></tr></thead>
+<tbody>
+<tr><td>grounding-50-lexicon</td><td>—</td><td>0</td><td>0</td><td>0</td><td>$0.000000</td><td>benchmark</td></tr>
+</tbody></table>
+<h2>Notes</h2>
+<ul>
+<li>Lexicon baseline: train majority CUI map, linking given gold spans</li>
+<li>Live BioPortal: <code>--mode bioportal</code> with BIOPORTAL_API_KEY</li>
+<li>See <code>results.json</code> for full metrics</li>
+</ul>
+</body></html>
