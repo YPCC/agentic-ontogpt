@@ -1,0 +1,33 @@
+name: piimb_pii_entities
+description: PIIMB-style PII labels for extraction smoke tests
+entity_types:
+  - ACCOUNTNUM
+  - AGE
+  - BIC
+  - BUILDINGNUM
+  - CITY
+  - COUNTRY
+  - CREDITCARDNUMBER
+  - DATE
+  - DRIVERLICENSENUM
+  - EMAIL
+  - GENDER
+  - GIVENNAME
+  - IBAN
+  - IDCARDNUM
+  - IP
+  - MASKEDNUMBER
+  - ORG
+  - PASSPORTNUM
+  - PASSWORD
+  - SEX
+  - SOCIALNUM
+  - STATE
+  - STREET
+  - SURNAME
+  - TAXNUM
+  - TELEPHONENUM
+  - TITLE
+  - URL
+  - USERNAME
+  - ZIPCODE
