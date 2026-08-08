@@ -2,6 +2,19 @@
 
 from __future__ import annotations
 
+try:
+    from importlib.metadata import version as _pkg_version
+except ImportError:  # pragma: no cover
+    from importlib_metadata import version as _pkg_version  # type: ignore
+
+
+def _package_version() -> str:
+    try:
+        return _pkg_version("agentic-ontogpt")
+    except Exception:
+        return "0.1.0"
+
+
 import copy
 import hashlib
 from dataclasses import asdict, dataclass, field
@@ -40,7 +53,7 @@ class PipelineState:
     execution_mode: str = "real"
     adk_model: str = ""
     spires_model: str = ""
-    pipeline_version: str = "0.2.0"
+    pipeline_version: str = field(default_factory=_package_version)
     provenance_manifest: Dict[str, Any] = field(default_factory=dict)
     run_id: str = ""
     created_at: str = field(default_factory=_utc_now)
@@ -64,81 +77,55 @@ class PipelineState:
         )
         self.touch()
 
-    def apply_repair_history(self, history: list) -> None:
-        """Load full repair chain into schema_history (iteration, sha256, validation)."""
-        self.schema_history = []
-        for step in history or []:
-            if hasattr(step, "schema_yaml"):
-                yaml_text = step.schema_yaml
-                iteration = step.iteration
-                validation = step.validation
-            else:
-                yaml_text = step.get("schema_yaml", "")
-                iteration = step.get("iteration", 0)
-                validation = step.get("validation") or {}
-            self.schema_history.append(
-                {
-                    "iteration": iteration,
-                    "version": iteration,
-                    "sha256": _sha256_text(yaml_text),
-                    "length": len(yaml_text or ""),
-                    "valid": bool((validation or {}).get("valid")),
-                    "validation_completeness": (validation or {}).get(
-                        "validation_completeness"
-                    ),
-                    "errors": (validation or {}).get("errors") or [],
-                    "at": _utc_now(),
-                }
-            )
-        if self.schema_history:
-            self.schema_version = max(
-                h.get("version", 0) for h in self.schema_history
-            )
-        self.touch()
-
     def set_validation(self, report: Dict[str, Any]) -> None:
         self.validation_report = report or {}
         self.touch()
 
     def schema_is_valid(self) -> bool:
-        return bool(self.validation_report.get("valid"))
+        return bool((self.validation_report or {}).get("valid"))
 
     def set_extraction(self, result: Dict[str, Any], *, blocked: bool = False) -> None:
         self.extraction_result = result or {}
         self.extraction_blocked = blocked
         self.touch()
 
+    def apply_repair_history(self, history: List[Dict[str, Any]]) -> None:
+        if not history:
+            return
+        self.schema_history = []
+        for h in history:
+            self.schema_history.append(
+                {
+                    "version": h.get("version", h.get("iteration", 0)),
+                    "sha256": h.get("schema_sha256") or _sha256_text(h.get("schema_yaml") or ""),
+                    "valid": h.get("valid"),
+                    "completeness": h.get("completeness"),
+                    "errors": h.get("errors") or [],
+                    "at": h.get("at") or _utc_now(),
+                }
+            )
+        self.schema_version = max(h.get("version", 0) for h in self.schema_history)
+        self.touch()
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PipelineState":
-        known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore
-        filtered = {k: v for k, v in (data or {}).items() if k in known}
-        return cls(**filtered)
-
-    def snapshot(self) -> Dict[str, Any]:
-        return copy.deepcopy(self.to_dict())
-
 
 def new_pipeline_state(
-    source_text: str = "",
-    entity_types: Optional[List[str]] = None,
+    source_text: str,
+    entity_types: List[str],
+    *,
     relation_types: Optional[List[str]] = None,
     ontology_preferences: Optional[Dict[str, str]] = None,
     execution_mode: str = "real",
 ) -> PipelineState:
-    from .modes import get_adk_model, get_spires_model, get_execution_mode
+    import uuid
 
-    mode = get_execution_mode(execution_mode).value
-    run_id = f"run-{_utc_now().replace(':', '').replace('+', 'Z')[:18]}"
     return PipelineState(
-        source_text=source_text or "",
+        source_text=source_text,
         entity_types=list(entity_types or []),
         relation_types=list(relation_types or []),
         ontology_preferences=dict(ontology_preferences or {}),
-        execution_mode=mode,
-        adk_model=get_adk_model(),
-        spires_model=get_spires_model(),
-        run_id=run_id,
+        execution_mode=execution_mode,
+        run_id=str(uuid.uuid4()),
     )
