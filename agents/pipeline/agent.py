@@ -4,6 +4,7 @@ Orchestrates:
   OntologySelector → TemplateRepairLoop (generate ↔ validate ↔ exit) → SPIRESExtraction
 
 Early exit: ValidationExitAgent escalates when validation_result.valid is true.
+Extract tool re-validates schema YAML deterministically (does not trust LLM flags alone).
 Offline: tools.repair.repair_until_valid / tools.pipeline_runner.run_pipeline
 """
 
@@ -79,11 +80,25 @@ def extract_with_spires(
     validation_valid: bool = True,
     validation_message: str = "",
 ) -> dict:
-    """Run SPIRES extraction. Blocked when validation_valid is false."""
+    """Run SPIRES with a **deterministic** schema gate.
+
+    Always re-runs the LinkML validation ladder on template_yaml before SPIRES,
+    ignoring a false-positive validation_valid from the LLM.
+    """
+    ladder = validate_linkml_schema(template_yaml or "")
+    if not ladder.get("valid"):
+        return {
+            "status": "error",
+            "outcome": "REAL_EXTRACTION_FAILED",
+            "error_type": "invalid_schema",
+            "message": "Extraction blocked: schema failed deterministic validation gate",
+            "errors": ladder.get("errors"),
+            "validation": ladder,
+        }
     validation_result: Optional[Dict[str, Any]] = {
-        "valid": bool(validation_valid),
-        "message": validation_message
-        or ("valid" if validation_valid else "validation failed"),
+        "valid": True,
+        "message": validation_message or "valid",
+        "ladder": ladder,
     }
     return run_spires_extraction(
         template_yaml,
