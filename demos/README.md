@@ -1,13 +1,19 @@
 # Demos
 
-## Failure modes & repair loop (P0)
+| Demo | Description |
+|------|-------------|
+| `OntoGPT_LinkML_Agent_Prototype.ipynb` | Early ADK prototype |
+| `failure_modes_repair_loop.ipynb` | P0 repair / gate failure modes |
+| `made/` | MADE 1.0 notebook |
+| **`run_modular_agents_demo.py`** | Modular packages only (not pipeline ADK graph) |
 
-[`failure_modes_repair_loop.ipynb`](failure_modes_repair_loop.ipynb) — offline notebook showing:
+## Modular agents demo (not pipeline)
 
-- Validation ladder failures (YAML, conventions)
-- Error-directed repair with early exit
-- Exhausted iterations
-- Extraction blocked on invalid schema
-- Explicit `SIMULATION_REQUESTED` vs `REAL_EXTRACTION_FAILED`
+```bash
+export AGENTIC_ONTOGPT_MODE=simulation
+python demos/run_modular_agents_demo.py --compare --made-template
+```
 
-No API keys required.
+Uses `agents.modular_compose.run_modular_pipeline` — packages under
+`agents/ontology_selector`, `validator`, `spires_extractor` — and checks parity
+against `tools.pipeline_runner`.
