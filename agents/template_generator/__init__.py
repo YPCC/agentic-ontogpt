@@ -1,2 +1,2 @@
-from .agent import INSTRUCTION, build_template_generator
-__all__ = ["build_template_generator", "INSTRUCTION"]
+from .agent import INSTRUCTION, build_template_generator, get_tools
+__all__ = ["get_tools", "build_template_generator", "INSTRUCTION"]
