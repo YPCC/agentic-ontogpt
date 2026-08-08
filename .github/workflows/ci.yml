@@ -28,7 +28,7 @@ jobs:
 
       - name: Lint
         run: |
-          ruff check tools agents tests || true
+          ruff check tools agents tests
 
       - name: Unit tests
         run: |
