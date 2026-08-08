@@ -49,8 +49,6 @@ python -m pytest tests/ -q
 python -m pytest tests/ -q
 python scripts/run_ablation.py --mode simulation
 python scripts/run_grounding_benchmark.py --limit 50 --mode lexicon
-# Live Annotator:
-# python scripts/run_grounding_benchmark.py --limit 20 --mode bioportal --ontology MSH
 ```
 
 Headless pipeline:
@@ -62,23 +60,27 @@ state = run_pipeline(
     ontology_preferences={"Medication": "RXNORM", "AdverseEvent": "MEDDRA"},
 )
 print(state.selected_ontologies, state.extraction_result["outcome"])
-print(state.component_metrics.get("observability"))
 ```
 
 ADK: `adk run agents/pipeline`  
 Failure modes: `demos/failure_modes_repair_loop.ipynb`
 
-### PII / PHI smoke (PIIMB + ASQ-PHI)
+### Modular agents demo (not the ADK pipeline graph)
 
-Synthetic-only (no real patient PHI):
+```bash
+export AGENTIC_ONTOGPT_MODE=simulation
+python demos/run_modular_agents_demo.py --compare --made-template
+```
+
+Uses `agents.modular_compose` + each package’s `get_tools()`. Checks parity with `tools.pipeline_runner`. **Does not modify** `agents/pipeline/agent.py`.
+
+### PII / PHI smoke (PIIMB + ASQ-PHI)
 
 ```bash
 python scripts/run_pii_smoke.py --limit 50
-# Optional GPT:
-# OPENAI_API_KEY=... python scripts/run_pii_smoke.py --backend gpt --limit 50
 ```
 
-Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md) · Results: `benchmarking/pii/results/`
+Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
 
 ---
 
@@ -91,16 +93,6 @@ Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md) · Results: `b
 | **P2** | Grounding ≠ selection, metrics, ablations A–D, clinical modifiers, RDF+SHACL |
 | **P3** | Gold-CUI grounding benchmark, ADK ValidationExitAgent, human approval, cost/latency dashboard |
 
-### P3 highlights
-
-**Grounding benchmark** (`benchmarking/grounding/`): linking given gold spans on MedMentions test; lexicon F1 ≈ 0.57 on 50 docs.
-
-**ADK early exit:** `agents/pipeline/exit_agent.py` — escalate when `validation_result.valid`.
-
-**Approval:** `APPROVAL_MODE=require` + decision files under `APPROVAL_DIR`.
-
-**Observability:** `tools.observability.ObservabilitySession` + HTML dashboard.
-
 ---
 
 ## Agents layout
@@ -109,12 +101,13 @@ Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md) · Results: `b
 |------|------|
 | `agents/pipeline/agent.py` | **Canonical** ADK SequentialAgent (keep stable) |
 | `agents/pipeline/exit_agent.py` | Validation early-exit for repair loop |
-| `agents/ontology_selector/` | Modular `build_ontology_selector()` |
-| `agents/template_generator/` | Modular `build_template_generator()` |
-| `agents/validator/` | Modular `build_validator()` |
-| `agents/spires_extractor/` | Modular `build_spires_extractor()` |
+| `agents/ontology_selector/` | Modular `build_*` + `get_tools()` |
+| `agents/template_generator/` | Modular `build_*` + `get_tools()` |
+| `agents/validator/` | Modular `build_*` + `get_tools()` |
+| `agents/spires_extractor/` | Modular `build_*` + `get_tools()` |
+| `agents/modular_compose.py` | Headless composition via modular tools |
 
-Modular packages mirror pipeline agents for gradual migration; they do **not** replace `pipeline/agent.py` yet. See [`agents/README.md`](agents/README.md).
+See [`agents/README.md`](agents/README.md).
 
 ---
 
@@ -128,8 +121,6 @@ Modular packages mirror pipeline agents for gradual migration; they do **not** r
 | Ablations | `benchmarking/ablation/` | `python scripts/run_ablation.py --mode simulation` |
 | Grounding | `benchmarking/grounding/` | `python scripts/run_grounding_benchmark.py --limit 50` |
 
-See [`benchmarking/README.md`](benchmarking/README.md).
-
 ---
 
 ## Status & limitations
@@ -137,8 +128,7 @@ See [`benchmarking/README.md`](benchmarking/README.md).
 - Prototype / PoC — not clinical decision support  
 - Validate extractions before clinical use; protect PHI on external APIs  
 - Ontology selection ≠ mention grounding  
-- BioPortal live grounding needs `BIOPORTAL_API_KEY`  
-- PII smoke uses **synthetic** data only; i2b2/n2c2 requires a separate DUA  
+- PII smoke uses **synthetic** data only  
 
 ---
 
