@@ -3,9 +3,8 @@
 Orchestrates:
   OntologySelector → TemplateRepairLoop (generate ↔ validate ↔ exit) → SPIRESExtraction
 
-Early exit: ValidationExitAgent escalates when validation_result.valid is true.
-Extract tool re-validates schema YAML deterministically (does not trust LLM flags alone).
-Offline: tools.repair.repair_until_valid / tools.pipeline_runner.run_pipeline
+Extract tool uses shared tools.schema_gate (deterministic; does not trust LLM flags).
+Offline: tools.pipeline_runner.run_pipeline
 """
 
 from __future__ import annotations
@@ -19,6 +18,7 @@ try:
     from tools.bioportal import bioportal_recommend_ontology, bioportal_search_term
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
+    from tools.schema_gate import gate_schema_for_extraction
     from tools.modes import get_adk_model
     from tools.ontology_policy import apply_ontology_policy as _apply_policy
 except ImportError:
@@ -29,17 +29,16 @@ except ImportError:
     from tools.bioportal import bioportal_recommend_ontology, bioportal_search_term
     from tools.linkml_tools import validate_linkml_schema, save_template_yaml
     from tools.spires import run_spires_extraction
+    from tools.schema_gate import gate_schema_for_extraction
     from tools.modes import get_adk_model
     from tools.ontology_policy import apply_ontology_policy as _apply_policy
 
 
 def recommend_ontologies(entities: str) -> dict:
-    """Recommend BioPortal ontologies for a comma-separated list of clinical entities."""
     return bioportal_recommend_ontology(entities)
 
 
 def search_term(query: str, ontologies: str = None) -> dict:
-    """Search BioPortal for a clinical term."""
     return bioportal_search_term(query, ontologies=ontologies)
 
 
@@ -48,7 +47,6 @@ def apply_policy(
     user_preferences_json: str = "{}",
     recommendations_json: str = "[]",
 ) -> dict:
-    """Apply deterministic ontology policy (allow/deny + preferred-by-type)."""
     import json
 
     entities = [e.strip() for e in entity_types.split(",") if e.strip()]
@@ -64,12 +62,10 @@ def apply_policy(
 
 
 def validate_schema(schema_yaml: str) -> dict:
-    """Run the multi-stage LinkML / OntoGPT validation ladder."""
     return validate_linkml_schema(schema_yaml)
 
 
 def persist_template(schema_yaml: str, schema_name: str = "clinical_extraction") -> dict:
-    """Save the generated YAML template to disk."""
     return save_template_yaml(schema_yaml, schema_name)
 
 
@@ -80,32 +76,20 @@ def extract_with_spires(
     validation_valid: bool = True,
     validation_message: str = "",
 ) -> dict:
-    """Run SPIRES with a **deterministic** schema gate.
-
-    Always re-runs the LinkML validation ladder on template_yaml before SPIRES,
-    ignoring a false-positive validation_valid from the LLM.
-    """
-    ladder = validate_linkml_schema(template_yaml or "")
-    if not ladder.get("valid"):
-        return {
+    """Run SPIRES via shared tools.schema_gate (deterministic)."""
+    decision = gate_schema_for_extraction(template_yaml or "", revalidate=True)
+    if not decision.allowed:
+        return decision.block_response or {
             "status": "error",
             "outcome": "REAL_EXTRACTION_FAILED",
             "error_type": "invalid_schema",
-            "message": "Extraction blocked: schema failed deterministic validation gate",
-            "errors": ladder.get("errors"),
-            "validation": ladder,
         }
-    validation_result: Optional[Dict[str, Any]] = {
-        "valid": True,
-        "message": validation_message or "valid",
-        "ladder": ladder,
-    }
     return run_spires_extraction(
         template_yaml,
         text,
         schema_name=schema_name,
         require_valid_schema=True,
-        validation_result=validation_result,
+        validation_result=decision.validation,
     )
 
 
