@@ -14,7 +14,7 @@ Part 1 lived mainly on **Path A** (Google ADK Sequential + Loop). This short fol
 
 ## Context at a glance
 
-![C4 context diagram — Agentic OntoGPT semantic control plane](https://raw.githubusercontent.com/YPCC/agentic-ontogpt/main/docs/articles/figures/c4-context-agentic-ontogpt.jpg)
+![C4 context diagram — Agentic OntoGPT semantic control plane](figures/c4-context-agentic-ontogpt.jpg)
 
 *C4 context view: the researcher supplies text and preferences; Agentic OntoGPT sits as the semantic control plane between clinical inputs, ontology policy, BioPortal, LLM services, and the OntoGPT/SPIRES engine—emitting schemas, extraction outputs, provenance, and optional RDF/SHACL artifacts.*
 
