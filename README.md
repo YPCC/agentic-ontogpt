@@ -63,7 +63,7 @@ python -m pytest tests/ -q
 export AGENTIC_ONTOGPT_MODE=simulation
 python demos/run_modular_agents_demo.py --compare --made-template
 
-# Path A — product Sequential/Loop (needs google-adk + GOOGLE_API_KEY)
+# Path A — product Sequential/Loop (needs google-adk + Vertex/ADC or GOOGLE_API_KEY)
 pip install google-adk
 adk run agents/pipeline
 
@@ -83,8 +83,6 @@ python demos/run_adk_repair_graph_demo.py --max-iterations 3
 | `demos/run_adk_repair_graph_demo.py` | B | Gate unit demo + repair graph modes |
 | `demos/run_modular_agents_demo.py` | C | Parity vs `pipeline_runner` |
 
-**Add a new agent (Path B):** implement `agents/<name>/` with `build_*` + `get_tools()`, one line in `registry._load_builders()`, optional edge in `graph_workflow` / `graph_repair`. Path A stays untouched until you deliberately migrate.
-
 More detail: [`agents/README.md`](agents/README.md) · [`demos/README.md`](demos/README.md)
 
 ---
@@ -96,17 +94,29 @@ git clone https://github.com/YPCC/agentic-ontogpt.git
 cd agentic-ontogpt
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"   # or: pip install pyyaml requests linkml pytest
-cp .env.example .env
+cp .env.example .env      # developer API-key mode
+# Enterprise Vertex + ADC instead:
+#   cp .env.adc.example .env
+#   see docs/AUTH_ADC.md
 python -m pytest tests/ -q
 ```
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_API_KEY` | ADK / Gemini agents |
+| `GOOGLE_API_KEY` | ADK / Gemini (developer AI Studio mode) |
 | `BIOPORTAL_API_KEY` | Recommend, search, annotator grounding |
 | `OPENAI_API_KEY` | Optional real OntoGPT SPIRES / GPT PII smoke |
 | `AGENTIC_ONTOGPT_MODE` | `real` (default) or `simulation` |
 | `APPROVAL_MODE` | `auto` / `require` / `reject` |
+
+**Enterprise (no API key):** Vertex AI + Google ADC — [`docs/AUTH_ADC.md`](docs/AUTH_ADC.md) · [`.env.adc.example`](.env.adc.example)
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_GENAI_USE_VERTEXAI` | `TRUE` — use Vertex backend |
+| `GOOGLE_CLOUD_PROJECT` | GCP project id |
+| `GOOGLE_CLOUD_LOCATION` | e.g. `us-central1` |
+| `ADK_LLM_MODEL` | e.g. `gemini-2.0-flash` |
 
 ---
 
@@ -136,7 +146,6 @@ Failure modes notebook: `demos/failure_modes_repair_loop.ipynb`
 
 ```bash
 python scripts/run_pii_smoke.py --limit 50
-# OPENAI_API_KEY=... python scripts/run_pii_smoke.py --backend gpt --limit 50
 ```
 
 Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
@@ -189,7 +198,7 @@ Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
 - Validate extractions before clinical use; protect PHI on external APIs  
 - Ontology selection ≠ mention grounding  
 - PII smoke uses **synthetic** data only  
-- Path B graph materialization needs `google-adk` (2.0 `Workflow` when available); demos degrade gracefully without it  
+- Path B graph materialization needs `google-adk`; demos degrade gracefully without it  
 
 ---
 
@@ -203,3 +212,4 @@ Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
 - PIIMB — https://huggingface.co/datasets/piimb/pii-masking-benchmark  
 - ASQ-PHI — https://github.com/JamesWeatherhead/asq-phi  
 - Google ADK graphs — https://google.github.io/adk-docs/workflows/  
+- Enterprise ADC + Vertex — [`docs/AUTH_ADC.md`](docs/AUTH_ADC.md)  
