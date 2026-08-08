@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from .linkml_tools import save_template_yaml
+from .schema_gate import gate_schema_for_extraction
 from .modes import (
     ExecutionMode,
     ExtractionOutcome,
@@ -43,16 +44,28 @@ def run_spires_extraction(
     """Run SPIRES with explicit outcomes. Simulation is opt-in only."""
     exec_mode = get_execution_mode(mode)
 
-    if require_valid_schema and validation_result is not None:
-        if validation_result.get("valid") is False:
-            return extraction_response(
-                ExtractionOutcome.REAL_EXTRACTION_FAILED,
-                error_type="invalid_schema",
+    # Shared deterministic gate:
+    # 1) Re-validate YAML (ignore false "valid" from LLM/caller)
+    # 2) Honor explicit prior valid=False (conservative block from repair loop)
+    if require_valid_schema:
+        from .schema_gate import blocked_extraction_response
+
+        decision = gate_schema_for_extraction(
+            template_yaml,
+            precomputed_validation=validation_result,
+            revalidate=True,
+        )
+        if not decision.allowed:
+            return decision.block_response
+        if validation_result is not None and validation_result.get("valid") is False:
+            return blocked_extraction_response(
+                validation_result,
                 message=(
-                    "Extraction blocked: schema validation failed. "
-                    + str(validation_result.get("message") or validation_result.get("errors"))
+                    "Extraction blocked: prior validation_result.valid is false. "
+                    + str(validation_result.get("message") or validation_result.get("errors") or "")
                 ),
             )
+        validation_result = decision.validation
 
     save_info = save_template_yaml(template_yaml, schema_name)
     path = save_info["path"]
