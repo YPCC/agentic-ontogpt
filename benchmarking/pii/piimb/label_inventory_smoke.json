@@ -1,0 +1,21 @@
+[
+  ["DATE", 10],
+  ["SURNAME", 9],
+  ["GIVENNAME", 7],
+  ["TITLE", 6],
+  ["CITY", 6],
+  ["TELEPHONENUM", 6],
+  ["AGE", 5],
+  ["EMAIL", 3],
+  ["SEX", 3],
+  ["STREET", 3],
+  ["BUILDINGNUM", 3],
+  ["GENDER", 2],
+  ["CREDITCARDNUMBER", 2],
+  ["PASSPORTNUM", 2],
+  ["ZIPCODE", 2],
+  ["IDCARDNUM", 2],
+  ["SOCIALNUM", 1],
+  ["TAXNUM", 1],
+  ["DRIVERLICENSENUM", 1]
+]
