@@ -1,26 +1,28 @@
-# Benchmarking — MedMentions ST21pv
+# Benchmarking — MedMentions ST21pv (Track 2)
 
-Results for **agentic-ontogpt** on [MedMentions](https://github.com/chanzuckerberg/MedMentions) ST21pv (50 test abstracts smoke).
+Accessible **CC0** corpus: [MedMentions](https://github.com/chanzuckerberg/MedMentions) (Mohan & Li, AKBC 2019).
 
-## Latest scores
+## Metrics
 
-| Mode | F1 (text+ST) | F1 (text only) |
-|------|--------------|----------------|
-| **Train lexicon baseline** | **0.346** | **0.380** |
-| oracle_gold | 1.000 | — |
-| Published exact-match CUI | ~0.38 | — |
-| Published TaggerOne CUI | ~0.45 | — |
-| Published BioBERT STY | ~0.64 | — |
+| Metric | Meaning |
+|--------|---------|
+| Schema gate valid | Template passes `tools.schema_gate` |
+| Outcome distribution | REAL_SUCCESS / SIMULATION_REQUESTED / REAL_EXTRACTION_FAILED |
+| Failure visibility | Explicit outcome per doc (no silent success) |
+| Micro P/R/F1 | Normalized text + primary semantic type (pilot; not official CUI linking) |
 
-See [results/comparison_table.md](results/comparison_table.md).
-
-## Reproduce
+## Commands
 
 ```bash
 python scripts/download_medmentions.py
-python scripts/convert_medmentions.py
-python scripts/convert_medmentions.py --pmids data/medmentions/corpus_pubtator_pmids_test.txt --out data/medmentions/docs_test.jsonl
-python scripts/run_medmentions_benchmark.py --limit 50
+python scripts/convert_medmentions.py \
+  --pmids data/medmentions/corpus_pubtator_pmids_test.txt \
+  --out data/medmentions/docs_test.jsonl
+
+AGENTIC_ONTOGPT_MODE=simulation python scripts/run_medmentions_track2.py --limit 50
+AGENTIC_ONTOGPT_MODE=real python scripts/run_medmentions_track2.py --limit 20
+python scripts/run_medmentions_track2.py --limit 20 --oracle
 ```
 
-Entity config: [`configs/medmentions_st21pv_entities.yaml`](../../configs/medmentions_st21pv_entities.yaml)
+Template: `templates/medmentions_st21pv.yaml`  
+Entity map: `configs/medmentions_st21pv_entities.yaml`
