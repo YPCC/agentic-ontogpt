@@ -28,62 +28,76 @@ It is evolving toward a production-grade semantic control plane. Maintaining a c
 | **Path B** | Experimental graph / registry showcase — additive; must not break Path A |
 | **Path C** | Headless pure-Python runner — strongest deterministic gates; CI-friendly |
 | **Control plane** | Policy → schema gen/validate → bounded repair → gated extract → optional grounding/RDF |
+| **Track 2** | Evidence harnesses on open literature NER corpora (outcomes + pilot F1) |
 
 ---
 
 ## [Unreleased]
 
+### Added
+
+#### Track 2 — open literature evaluation foundation
+
+- **Shared** `tools/track2_eval.py` — schema gate, shared SPIRES outcomes, oracle mode, micro P/R/F1, provenance helpers
+- **MedMentions ST21pv** — `scripts/run_medmentions_track2.py`; control-plane metrics (schema validity, outcome distribution, failure visibility) + text+ST micro-F1; results under `benchmarking/medmentions/results_track2_*`
+- **BC5CDR** (Chemical + Disease)
+  - `scripts/download_bc5cdr.py` / `convert_bc5cdr.py`
+  - `templates/bc5cdr.yaml`
+  - `scripts/run_bc5cdr_track2.py` (simulation / oracle / real)
+  - `benchmarking/bc5cdr/README.md`
+- **BC2GM** (Gene/Protein — genomics/proteomics literature NER)
+  - `scripts/download_bc2gm.py` / `convert_bc2gm.py`
+  - `templates/bc2gm.yaml`
+  - `scripts/run_bc2gm_track2.py` (simulation / oracle / real)
+  - `benchmarking/bc2gm/README.md`
+- Tests: `tests/test_medmentions_track2.py`, `tests/test_track2_bc5cdr_bc2gm.py`
+
+#### Documentation
+
+- **README** restructured: hero image → what this is / showcases → quick start → Paths A/B/C → architecture → benchmarking → **FAQ** → status & references
+- FAQ covers: SPIRES not replaced, controlled agency, invalid schema / fail-closed gate, paths, simulation outcomes, selection vs grounding, production readiness, evaluation workflow
+
+### Fixed (Track 1 — control-plane honesty)
+
+- **Benchmarks:** MADE (`scripts/run_made_eval.py`) and MedMentions harnesses use shared `tools.spires` outcomes — no silent gold simulation on real failure
+- **Path C:** grounding/RDF run only after extraction outcome ∈ `{REAL_SUCCESS, SIMULATION_REQUESTED}`; skipped with explicit reason otherwise
+- **Path C:** default `grounding_mode="none"` — callers must pass `lexicon` or `bioportal` to resolve concepts
+- **Path C / SPIRES:** `REAL_EXTRACTION_FAILED` marks extraction as blocked for downstream gating
+- **CI:** Ruff is a **failing** quality gate (`ruff check tools agents tests`; removed `|| true`); intentional broad `except` rules ignored via `pyproject.toml`
+
 ### Planned (not yet claimed as shipped)
 
 - Per-entity-type BioPortal ranking before policy (selection quality)
 - `concept_id` / optional `umls_cui` rename in grounding public API
-- Path C `profile="full"` (grounding + RDF on by default as a named profile)
-- Pin and CI-test ADK 2.x graph API before advertising Path B parity
-- Align remaining benchmark scripts on remote with no silent simulation
-- Production packaging: deploy samples, durable state, real provider telemetry
+- Path C `profile="full"` (grounding + RDF convenience preset)
+- Real SPIRES quality runs on BC5CDR / BC2GM with published comparison tables (requires API keys + pinned ontogpt)
+- Path B pinned ADK graph API in CI (until then Path B stays experimental)
 
 ---
 
-## [0.1.0] — 2026-08 — Prototype control plane
+## [0.1.0] — Path A foundation + Path B additive showcase
 
-First coherent open release of the agentic control layer around OntoGPT/SPIRES.
+First tagged narrative baseline of the repository as a **semantic control plane PoC**.
 
-### Path A — initial canonical path (foundation)
+### Path A (canonical)
 
-Shipped first as the primary ADK workflow:
+- ADK Sequential + Loop pipeline in `agents/pipeline/agent.py`
+- Ontology selection tools, template generation, validation ladder, SPIRES extract tool
+- Bounded repair via `LoopAgent` + validation-oriented exit agent
+- Explicit runtime outcomes in core SPIRES integration
 
-- `SequentialAgent` + `LoopAgent` orchestration in `agents/pipeline/`
-- Roles: ontology selection → template generate ↔ validate (bounded) → SPIRES extract
-- Multi-stage LinkML / OntoGPT validation ladder
-- Error-directed generator instructions (consume `validation_result`)
-- Explicit extraction outcomes (`REAL_SUCCESS` | `SIMULATION_REQUESTED` | `REAL_EXTRACTION_FAILED`)
-- Simulation **opt-in only** (`AGENTIC_ONTOGPT_MODE=simulation`); no silent fallback on real failure in core SPIRES
+### Path B (experimental, additive)
 
-### Path C — headless / CI twin
+- `agents/registry.py` — `build_*` factory registry
+- `agents/graph_workflow.py` / `agents/graph_repair.py` — graph / sequential-from-factories demos
+- Demos under `demos/run_adk_graph_demo.py`, `run_adk_repair_graph_demo.py`
+- **Does not** modify or replace Path A product entrypoints; **not** claimed equivalent to A/C
 
-Added so tests and notebooks do not depend on ADK:
+### Path C (headless)
 
-- `tools/pipeline_runner.run_pipeline` — policy → repair → **hard extract gate** → provenance
-- Ontology allow/deny / preferred-by-type policy
-- `PipelineState` + run manifest (git/provenance fields)
-- Human approval checkpoints (headless; `APPROVAL_MODE`)
-- Lightweight observability (stage timers, estimated tokens/cost)
-
-### Path B — next version line (experimental, additive)
-
-Introduced **without** rewriting Path A’s `agents/pipeline/agent.py`:
-
-| Addition | Role |
-|----------|------|
-| `agents/registry.py` | `build_*` factory registry for composable agents |
-| Modular packages under `agents/{ontology_selector,template_generator,validator,spires_extractor}/` | Same tools as Path A, importable as factories |
-| `agents/graph_workflow.py` | Workflow assembly when ADK exposes it; Sequential-from-factories fallback |
-| `agents/graph_repair.py` | `REFINE` / `DONE` gate + experimental multi-iter repair showcase |
-| `demos/run_adk_graph_demo.py` | Prove factories compose into an ADK-ready root |
-| `demos/run_adk_repair_graph_demo.py` | Gate unit demo + repair graph modes |
-| `agents/modular_compose.py` + `demos/run_modular_agents_demo.py` | Headless modular path with parity checks |
-
-**Maturity note (honest):** Path B is a **compatibility / composition showcase**. Multi-iteration repair remains strongest on Path A `LoopAgent` and Path C `repair_until_valid`. Path B is **not** yet an equivalent production graph runtime.
+- `tools/pipeline_runner.py` — policy → repair → gated extract → provenance
+- `agents/modular_compose.py` — modular tool composition without ADK
+- Strongest deterministic extract enforcement for CI
 
 ### Shared governance (cross-path)
 
@@ -96,14 +110,14 @@ Introduced **without** rewriting Path A’s `agents/pipeline/agent.py`:
 ### Benchmarks & demos (supporting)
 
 - MADE 1.0 template + eval harness (request-based full data still external)
-- MedMentions ST21pv smoke scripts
+- MedMentions ST21pv smoke / Track 2 scripts
 - PII/PHI synthetic smoke (PIIMB / ASQ-PHI) — separate from SPIRES pipeline
 - Ablation harness (control-flow / gating behavior in simulation)
 - Failure-modes / repair-loop notebook under `demos/`
 
 ### Documentation
 
-- Root `README.md` — parallel paths A/B/C, real vs simulation
+- Root `README.md` — parallel paths A/B/C, real vs simulation (later expanded with FAQ)
 - `docs/AUTH_ADC.md` — enterprise Gemini via ADC
 - Medium article assets under `docs/articles/` (narrative; code is source of truth)
 
@@ -121,13 +135,15 @@ Until **1.0.0**:
 
 **Do not** bump to 1.0 solely because Path B demos exist.
 
+Suggested next release candidate after Unreleased lands: **0.2.0** (Track 2 foundation + Track 1 honesty fixes + README/FAQ).
+
 ---
 
 ## How maintainers should update this file
 
 1. Under **[Unreleased]**, add bullets as PRs land (Added / Changed / Fixed / Deprecated / Security).
 2. On release, move Unreleased → a dated `## [x.y.z]` section and bump `pyproject.toml`.
-3. Tag Path A / B / C in the bullet when the change is path-specific.
+3. Tag Path A / B / C / Track 2 in the bullet when the change is scoped.
 4. Prefer **under-claiming** experimental graph work over implying parity with Path C gates.
 
 Example:
@@ -146,5 +162,6 @@ Example:
 
 - Package version: `pyproject.toml`
 - Runtime version in manifests: `tools/pipeline_state.py` → `_package_version()`
-- Path overview: root `README.md`
+- Path overview + FAQ: root `README.md`
 - Auth: `docs/AUTH_ADC.md`
+- Track 2 guides: `benchmarking/bc5cdr/`, `benchmarking/bc2gm/`, `benchmarking/medmentions/`
