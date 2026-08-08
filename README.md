@@ -22,6 +22,73 @@ Simulation is **opt-in** (`AGENTIC_ONTOGPT_MODE=simulation`). Real failures are 
 
 ---
 
+## Parallel execution paths (same control plane)
+
+The **control-plane topology is the same** everywhere:
+
+```text
+Ontology selection → policy → bounded repair (gen ↔ val)×N → gated SPIRES extract
+```
+
+We keep **three parallel ways** to run it so the product path stays stable while we showcase ADK 2.0 graphs:
+
+```text
+                    ┌──────────────────────────────────────────┐
+   same topology    │ Ontology → Repair(gen↔val)×N → Extract  │
+                    └──────────────────────────────────────────┘
+                         │              │              │
+            ┌────────────┘              │              └────────────┐
+            ▼                           ▼                           ▼
+   Path A — Product            Path B — Graph showcase     Path C — Headless
+   ADK Sequential / Loop       ADK 2.0 Workflow + gate     No ADK
+   agents/pipeline/agent.py    registry + graph_*          pipeline_runner /
+   (canonical — do not break)  (additive only)             modular_compose
+```
+
+| Path | Style | Entry | When to use |
+|------|--------|-------|-------------|
+| **A** | ADK **1.x-style** templated agents (`SequentialAgent` + `LoopAgent`) — *non-graph* | `adk run agents/pipeline` | Production / default |
+| **B** | ADK **2.0 graph** (`Workflow` edges, `REFINE`/`DONE` gate, dynamic multi-iter repair) | `python demos/run_adk_graph_demo.py` · `python demos/run_adk_repair_graph_demo.py` | Showcase graph routing **without** changing Path A |
+| **C** | Pure Python (factories / tools only) | `tools.pipeline_runner` · `python demos/run_modular_agents_demo.py --compare` | CI, tests, no `google-adk` |
+
+Path B builds nodes from `build_*` factories via [`agents/registry.py`](agents/registry.py). It does **not** modify [`agents/pipeline/agent.py`](agents/pipeline/agent.py).
+
+### Quick commands
+
+```bash
+# Always
+python -m pytest tests/ -q
+
+# Path C — headless (no ADK)
+export AGENTIC_ONTOGPT_MODE=simulation
+python demos/run_modular_agents_demo.py --compare --made-template
+
+# Path A — product Sequential/Loop (needs google-adk + GOOGLE_API_KEY)
+pip install google-adk
+adk run agents/pipeline
+
+# Path B — ADK 2.0 graph showcase (registry; does not load pipeline.agent)
+python demos/run_adk_graph_demo.py
+python demos/run_adk_repair_graph_demo.py --max-iterations 3
+```
+
+| Module / demo | Path | Role |
+|---------------|------|------|
+| `agents/pipeline/agent.py` | A | Canonical Sequential + Loop repair |
+| `agents/registry.py` | B | `build(name)` factory registry |
+| `agents/graph_workflow.py` | B | Control-plane `Workflow` (or Sequential-from-factories fallback) |
+| `agents/graph_repair.py` | B | Multi-iter repair: dynamic loop **or** gate `REFINE`→gen / `DONE`→extract |
+| `agents/modular_compose.py` | C | Headless composition via `get_tools()` |
+| `demos/run_adk_graph_demo.py` | B | Assemble & report graph mode |
+| `demos/run_adk_repair_graph_demo.py` | B | Gate unit demo + repair graph modes |
+| `demos/run_modular_agents_demo.py` | C | Parity vs `pipeline_runner` |
+
+**Add a new agent (Path B):** implement `agents/<name>/` with `build_*` + `get_tools()`, one line in `registry._load_builders()`, optional edge in `graph_workflow` / `graph_repair`. Path A stays untouched until you deliberately migrate.
+
+More detail: [`agents/README.md`](agents/README.md) · [`demos/README.md`](demos/README.md)
+
+---
+
 ## Quick start
 
 ```bash
@@ -43,7 +110,7 @@ python -m pytest tests/ -q
 
 ---
 
-## How to run
+## How to run (benchmarks & headless)
 
 ```bash
 python -m pytest tests/ -q
@@ -51,7 +118,8 @@ python scripts/run_ablation.py --mode simulation
 python scripts/run_grounding_benchmark.py --limit 50 --mode lexicon
 ```
 
-Headless pipeline:
+Headless pipeline (Path C):
+
 ```python
 from tools.pipeline_runner import run_pipeline
 state = run_pipeline(
@@ -62,22 +130,13 @@ state = run_pipeline(
 print(state.selected_ontologies, state.extraction_result["outcome"])
 ```
 
-ADK: `adk run agents/pipeline`  
-Failure modes: `demos/failure_modes_repair_loop.ipynb`
-
-### Modular agents demo (not the ADK pipeline graph)
-
-```bash
-export AGENTIC_ONTOGPT_MODE=simulation
-python demos/run_modular_agents_demo.py --compare --made-template
-```
-
-Uses `agents.modular_compose` + each package’s `get_tools()`. Checks parity with `tools.pipeline_runner`. **Does not modify** `agents/pipeline/agent.py`.
+Failure modes notebook: `demos/failure_modes_repair_loop.ipynb`
 
 ### PII / PHI smoke (PIIMB + ASQ-PHI)
 
 ```bash
 python scripts/run_pii_smoke.py --limit 50
+# OPENAI_API_KEY=... python scripts/run_pii_smoke.py --backend gpt --limit 50
 ```
 
 Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
@@ -99,15 +158,16 @@ Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md)
 
 | Path | Role |
 |------|------|
-| `agents/pipeline/agent.py` | **Canonical** ADK SequentialAgent (keep stable) |
+| `agents/pipeline/agent.py` | **Path A** — canonical ADK Sequential/Loop (keep stable) |
 | `agents/pipeline/exit_agent.py` | Validation early-exit for repair loop |
 | `agents/ontology_selector/` | Modular `build_*` + `get_tools()` |
 | `agents/template_generator/` | Modular `build_*` + `get_tools()` |
 | `agents/validator/` | Modular `build_*` + `get_tools()` |
 | `agents/spires_extractor/` | Modular `build_*` + `get_tools()` |
-| `agents/modular_compose.py` | Headless composition via modular tools |
-
-See [`agents/README.md`](agents/README.md).
+| `agents/registry.py` | **Path B** — factory registry |
+| `agents/graph_workflow.py` | **Path B** — ADK 2.0 Workflow assembly |
+| `agents/graph_repair.py` | **Path B** — multi-iter repair graph |
+| `agents/modular_compose.py` | **Path C** — headless modular composition |
 
 ---
 
@@ -129,6 +189,7 @@ See [`agents/README.md`](agents/README.md).
 - Validate extractions before clinical use; protect PHI on external APIs  
 - Ontology selection ≠ mention grounding  
 - PII smoke uses **synthetic** data only  
+- Path B graph materialization needs `google-adk` (2.0 `Workflow` when available); demos degrade gracefully without it  
 
 ---
 
@@ -141,4 +202,4 @@ See [`agents/README.md`](agents/README.md).
 - MADE 1.0 — https://pmc.ncbi.nlm.nih.gov/articles/PMC6860017/  
 - PIIMB — https://huggingface.co/datasets/piimb/pii-masking-benchmark  
 - ASQ-PHI — https://github.com/JamesWeatherhead/asq-phi  
-- Google ADK — https://google.github.io/adk-docs/  
+- Google ADK graphs — https://google.github.io/adk-docs/workflows/  
