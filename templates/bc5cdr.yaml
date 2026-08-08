@@ -1,0 +1,42 @@
+id: https://w3id.org/ontogpt/bc5cdr
+name: bc5cdr
+title: BC5CDR Chemical–Disease SPIRES Schema
+description: >-
+  OntoGPT template for BioCreative V CDR: Chemical and Disease mentions
+  in PubMed abstracts (optional chemical–disease associations).
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  bc5: https://w3id.org/ontogpt/bc5cdr/
+  MESH: http://id.nlm.nih.gov/mesh/
+default_prefix: bc5
+default_range: string
+imports:
+  - linkml:types
+  - core
+classes:
+  ExtractionResult:
+    tree_root: true
+    attributes:
+      chemicals:
+        range: Chemical
+        multivalued: true
+      diseases:
+        range: Disease
+        multivalued: true
+      chemical_disease_relations:
+        range: ChemicalDiseaseAssociation
+        multivalued: true
+  Chemical:
+    is_a: NamedEntity
+  Disease:
+    is_a: NamedEntity
+  ChemicalDiseaseAssociation:
+    is_a: CompoundExpression
+    attributes:
+      chemical:
+        range: Chemical
+      disease:
+        range: Disease
+      relation:
+        range: string

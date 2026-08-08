@@ -1,0 +1,24 @@
+id: https://w3id.org/ontogpt/bc2gm
+name: bc2gm
+title: BC2GM Gene/Protein Mention SPIRES Schema
+description: >-
+  OntoGPT template for BioCreative II Gene Mention (BC2GM): gene and protein
+  names in biomedical sentences.
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  bc2: https://w3id.org/ontogpt/bc2gm/
+default_prefix: bc2
+default_range: string
+imports:
+  - linkml:types
+  - core
+classes:
+  ExtractionResult:
+    tree_root: true
+    attributes:
+      genes:
+        range: GeneProtein
+        multivalued: true
+  GeneProtein:
+    is_a: NamedEntity
