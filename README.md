@@ -37,7 +37,7 @@ python -m pytest tests/ -q
 |----------|---------|
 | `GOOGLE_API_KEY` | ADK / Gemini agents |
 | `BIOPORTAL_API_KEY` | Recommend, search, annotator grounding |
-| `OPENAI_API_KEY` | Optional real OntoGPT SPIRES |
+| `OPENAI_API_KEY` | Optional real OntoGPT SPIRES / GPT PII smoke |
 | `AGENTIC_ONTOGPT_MODE` | `real` (default) or `simulation` |
 | `APPROVAL_MODE` | `auto` / `require` / `reject` |
 
@@ -68,6 +68,18 @@ print(state.component_metrics.get("observability"))
 ADK: `adk run agents/pipeline`  
 Failure modes: `demos/failure_modes_repair_loop.ipynb`
 
+### PII / PHI smoke (PIIMB + ASQ-PHI)
+
+Synthetic-only (no real patient PHI):
+
+```bash
+python scripts/run_pii_smoke.py --limit 50
+# Optional GPT:
+# OPENAI_API_KEY=... python scripts/run_pii_smoke.py --backend gpt --limit 50
+```
+
+Guide: [`benchmarking/pii/README.md`](benchmarking/pii/README.md) · Results: `benchmarking/pii/results/`
+
 ---
 
 ## Capability layers
@@ -91,14 +103,32 @@ Failure modes: `demos/failure_modes_repair_loop.ipynb`
 
 ---
 
+## Agents layout
+
+| Path | Role |
+|------|------|
+| `agents/pipeline/agent.py` | **Canonical** ADK SequentialAgent (keep stable) |
+| `agents/pipeline/exit_agent.py` | Validation early-exit for repair loop |
+| `agents/ontology_selector/` | Modular `build_ontology_selector()` |
+| `agents/template_generator/` | Modular `build_template_generator()` |
+| `agents/validator/` | Modular `build_validator()` |
+| `agents/spires_extractor/` | Modular `build_spires_extractor()` |
+
+Modular packages mirror pipeline agents for gradual migration; they do **not** replace `pipeline/agent.py` yet. See [`agents/README.md`](agents/README.md).
+
+---
+
 ## Benchmarking paths
 
-| Track | Path |
-|-------|------|
-| MADE 1.0 | `benchmarking/made/` |
-| MedMentions ST21pv | `benchmarking/medmentions/` |
-| Ablations | `benchmarking/ablation/` |
-| Grounding | `benchmarking/grounding/` |
+| Track | Path | Smoke |
+|-------|------|-------|
+| MADE 1.0 | `benchmarking/made/` | `python scripts/run_made_eval.py` |
+| MedMentions ST21pv | `benchmarking/medmentions/` | `python scripts/run_medmentions_benchmark.py --limit 50` |
+| **PII / PHI** | `benchmarking/pii/` | `python scripts/run_pii_smoke.py --limit 50` |
+| Ablations | `benchmarking/ablation/` | `python scripts/run_ablation.py --mode simulation` |
+| Grounding | `benchmarking/grounding/` | `python scripts/run_grounding_benchmark.py --limit 50` |
+
+See [`benchmarking/README.md`](benchmarking/README.md).
 
 ---
 
@@ -108,6 +138,7 @@ Failure modes: `demos/failure_modes_repair_loop.ipynb`
 - Validate extractions before clinical use; protect PHI on external APIs  
 - Ontology selection ≠ mention grounding  
 - BioPortal live grounding needs `BIOPORTAL_API_KEY`  
+- PII smoke uses **synthetic** data only; i2b2/n2c2 requires a separate DUA  
 
 ---
 
@@ -118,4 +149,6 @@ Failure modes: `demos/failure_modes_repair_loop.ipynb`
 - BioPortal — https://data.bioontology.org/documentation  
 - MedMentions — https://github.com/chanzuckerberg/MedMentions  
 - MADE 1.0 — https://pmc.ncbi.nlm.nih.gov/articles/PMC6860017/  
+- PIIMB — https://huggingface.co/datasets/piimb/pii-masking-benchmark  
+- ASQ-PHI — https://github.com/JamesWeatherhead/asq-phi  
 - Google ADK — https://google.github.io/adk-docs/  
