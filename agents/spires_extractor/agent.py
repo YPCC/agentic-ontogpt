@@ -5,14 +5,16 @@ from textwrap import dedent
 from typing import Any, Dict, Optional
 
 
-def _tools():
+def get_tools():
     try:
         from tools.spires import run_spires_extraction
+        from tools.linkml_tools import validate_linkml_schema
     except ImportError:
         import sys
         from pathlib import Path
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from tools.spires import run_spires_extraction
+        from tools.linkml_tools import validate_linkml_schema
 
     def extract_with_spires(
         template_yaml: str,
@@ -21,10 +23,21 @@ def _tools():
         validation_valid: bool = True,
         validation_message: str = "",
     ) -> dict:
+        """Deterministic gate: re-validate schema YAML before SPIRES."""
+        ladder = validate_linkml_schema(template_yaml or "")
+        if not ladder.get("valid"):
+            return {
+                "status": "error",
+                "outcome": "REAL_EXTRACTION_FAILED",
+                "error_type": "invalid_schema",
+                "message": "Extraction blocked: schema failed deterministic validation gate",
+                "errors": ladder.get("errors"),
+                "validation": ladder,
+            }
         validation_result: Optional[Dict[str, Any]] = {
-            "valid": bool(validation_valid),
-            "message": validation_message
-            or ("valid" if validation_valid else "validation failed"),
+            "valid": True,
+            "message": validation_message or "valid",
+            "ladder": ladder,
         }
         return run_spires_extraction(
             template_yaml,
@@ -69,6 +82,6 @@ def build_spires_extractor(model: Optional[str] = None) -> Any:
         model=model,
         description="Runs OntoGPT SPIRES extraction only after successful validation.",
         instruction=INSTRUCTION,
-        tools=_tools(),
+        tools=get_tools(),
         output_key="extraction_result",
     )

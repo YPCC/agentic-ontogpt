@@ -1,4 +1,9 @@
-"""Headless pipeline runner using PipelineState (P1+P3+C1)."""
+"""Headless pipeline runner using PipelineState (P1).
+
+Optional downstream stages (off by default):
+  enable_grounding — lexicon/BioPortal concept grounding
+  enable_rdf — Turtle export + parse/SHACL report
+"""
 
 from __future__ import annotations
 
@@ -26,8 +31,14 @@ def run_pipeline(
     max_repair_iterations: int = 3,
     execution_mode: Optional[str] = None,
     policy_path: Optional[str] = None,
+    enable_grounding: bool = False,
+    enable_rdf: bool = False,
+    grounding_mode: str = "lexicon",
 ) -> PipelineState:
-    """Execute ontology policy → schema repair → gated extract → provenance."""
+    """Ontology policy → schema repair → gated extract → provenance.
+
+    Grounding and RDF are optional downstream stages (default off).
+    """
     state = new_pipeline_state(
         source_text=source_text,
         entity_types=entity_types,
@@ -49,103 +60,95 @@ def run_pipeline(
     state.ontology_policy_report = policy_report
     obs.mark("ontology", api_calls=1 if bioportal_recommendations else 0)
     dec = request_approval(
-        "after_ontology_selection",
-        state.run_id,
+        "after_ontology_selection", state.run_id,
         f"selected={state.selected_ontologies}",
         {"selected": state.selected_ontologies},
     )
     if not dec.approved:
         state.set_extraction(
-            {
-                "status": "error",
-                "outcome": "REAL_EXTRACTION_FAILED",
-                "error_type": "approval_denied",
-                "message": dec.comment,
-            },
+            {"status": "error", "outcome": "REAL_EXTRACTION_FAILED",
+             "error_type": "approval_denied", "message": dec.comment},
             blocked=True,
         )
         build_run_manifest(state)
-        state.component_metrics = {
-            "approval": dec.to_dict(),
-            "observability": obs.summary(),
-        }
+        state.component_metrics = {"approval": dec.to_dict(), "observability": obs.summary()}
         return state
 
-    schema = initial_schema_yaml or ""
     regen = regenerate_fn or fixture_regenerate
-    seed = schema if schema else "name: empty\n"
-    repair = repair_until_valid(
-        seed, regen, max_iterations=max_repair_iterations
-    )
+    seed = initial_schema_yaml if initial_schema_yaml else "name: empty\n"
+    repair = repair_until_valid(seed, regen, max_iterations=max_repair_iterations)
     state.set_schema(repair.schema_yaml, from_repair=True)
     state.schema_version = repair.schema_version
     state.repair_iterations = repair.iterations
     state.repair_stopped_reason = repair.stopped_reason
     state.set_validation(repair.final_validation)
-    # C1: full revision chain from repair controller
     state.apply_repair_history(repair.history)
-    obs.mark(
-        "schema_repair",
-        input_tokens=estimate_tokens_from_text(state.generated_schema_yaml),
-    )
+    obs.mark("schema_repair", input_tokens=estimate_tokens_from_text(state.generated_schema_yaml))
     dec2 = request_approval(
-        "after_schema_validation",
-        state.run_id,
+        "after_schema_validation", state.run_id,
         f"valid={state.schema_is_valid()}",
-        {
-            "valid": state.schema_is_valid(),
-            "errors": state.validation_report.get("errors"),
-        },
+        {"valid": state.schema_is_valid(), "errors": state.validation_report.get("errors")},
     )
     if not dec2.approved:
         state.set_extraction(
-            {
-                "status": "error",
-                "outcome": "REAL_EXTRACTION_FAILED",
-                "error_type": "approval_denied",
-                "message": dec2.comment,
-            },
+            {"status": "error", "outcome": "REAL_EXTRACTION_FAILED",
+             "error_type": "approval_denied", "message": dec2.comment},
             blocked=True,
         )
         build_run_manifest(state)
-        state.component_metrics = {
-            "approval": dec2.to_dict(),
-            "observability": obs.summary(),
-        }
+        state.component_metrics = {"approval": dec2.to_dict(), "observability": obs.summary()}
         return state
 
     if not state.schema_is_valid():
         state.set_extraction(
-            {
-                "status": "error",
-                "outcome": "REAL_EXTRACTION_FAILED",
-                "error_type": "invalid_schema",
-                "message": "Extraction blocked: schema did not pass validation ladder",
-                "errors": state.validation_report.get("errors"),
-            },
+            {"status": "error", "outcome": "REAL_EXTRACTION_FAILED",
+             "error_type": "invalid_schema",
+             "message": "Extraction blocked: schema did not pass validation ladder",
+             "errors": state.validation_report.get("errors")},
             blocked=True,
         )
     else:
         result = run_spires_extraction(
-            state.generated_schema_yaml,
-            state.source_text,
-            mode=state.execution_mode,
-            require_valid_schema=True,
+            state.generated_schema_yaml, state.source_text,
+            mode=state.execution_mode, require_valid_schema=True,
             validation_result=state.validation_report,
         )
-        state.set_extraction(
-            result, blocked=result.get("error_type") == "invalid_schema"
-        )
+        state.set_extraction(result, blocked=result.get("error_type") == "invalid_schema")
 
-    obs.mark(
-        "extract",
-        api_calls=0 if state.execution_mode == "simulation" else 1,
-        input_tokens=estimate_tokens_from_text(state.source_text),
-    )
+    obs.mark("extract", api_calls=0 if state.execution_mode == "simulation" else 1,
+            input_tokens=estimate_tokens_from_text(state.source_text))
+
+    if enable_grounding and state.extraction_result and not state.extraction_blocked:
+        try:
+            from .grounding import ground_extraction_object
+            obj = state.extraction_result.get("extracted_object")
+            report = ground_extraction_object(
+                obj if isinstance(obj, dict) else {},
+                state.selected_ontologies or {},
+                use_bioportal=(grounding_mode == "bioportal"),
+            )
+            state.grounding_report = report if isinstance(report, dict) else {"result": report}
+            obs.mark("grounding", api_calls=1 if grounding_mode == "bioportal" else 0)
+        except Exception as e:
+            state.grounding_report = {"status": "error", "error": str(e)}
+
+    if enable_rdf and state.extraction_result:
+        try:
+            from .rdf_export import export_and_validate
+            state.rdf_export = export_and_validate(
+                state.extraction_result,
+                grounding_report=state.grounding_report or None,
+            )
+            obs.mark("rdf_export")
+        except Exception as e:
+            state.rdf_export = {"status": "error", "error": str(e)}
+
     build_run_manifest(state)
     state.component_metrics = {
         **(state.component_metrics or {}),
         "observability": obs.summary(),
         "approval_mode": get_approval_mode(),
+        "enable_grounding": enable_grounding,
+        "enable_rdf": enable_rdf,
     }
     return state
