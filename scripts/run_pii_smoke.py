@@ -158,9 +158,18 @@ def main():
         "PHONE_NUMBER", "TELEPHONENUM", "GEOGRAPHIC_LOCATION",
         "SOCIAL_SECURITY_NUMBER", "MEDICAL_RECORD_NUMBER",
     ]
+
+    def _resolve(name: str) -> Path:
+        base = ROOT / "benchmarking/pii" / name
+        for cand in ("smoke_50.jsonl", "smoke_sample.jsonl"):
+            path = base / cand
+            if path.exists():
+                return path
+        return base / "smoke_50.jsonl"
+
     datasets = {
-        "piimb": ROOT / "benchmarking/pii/piimb/smoke_50.jsonl",
-        "asq_phi": ROOT / "benchmarking/pii/asq_phi/smoke_50.jsonl",
+        "piimb": _resolve("piimb"),
+        "asq_phi": _resolve("asq_phi"),
     }
     out = {
         "run_at": datetime.now(timezone.utc).isoformat(),
