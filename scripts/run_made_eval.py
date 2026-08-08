@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import yaml
 
@@ -80,76 +79,39 @@ PUBLIC_BASELINES = {
 }
 
 
-def run_spires(template_yaml: str, text: str) -> Dict[str, Any]:
-    out_dir = Path(tempfile.mkdtemp(prefix="made_"))
-    tpl = out_dir / "made_1_0.yaml"
-    tpl.write_text(template_yaml)
-    try:
-        from ontogpt.engines.spires_engine import SPIRESEngine
-        from ontogpt.io.template_loader import get_template_details
+def run_spires(template_yaml: str, text: str) -> dict[str, Any]:
+    """Delegate to shared tools.spires (explicit outcomes; no silent simulation)."""
+    if str(REPO) not in sys.path:
+        sys.path.insert(0, str(REPO))
+    from tools.spires import run_spires_extraction
 
-        details = get_template_details(template=str(tpl))
-        engine = SPIRESEngine(template_details=details, model="gpt-4o")
-        result = engine.extract_from_text(text)
-        obj = result.extracted_object
-        if hasattr(obj, "dict"):
-            obj = obj.dict()
-        elif hasattr(obj, "model_dump"):
-            obj = obj.model_dump()
-        else:
-            obj = dict(obj) if obj else {}
-        return {"mode": "real_ontogpt", "extracted_object": obj}
-    except Exception as e:
-        sim = {
-            "drugs": [
-                {"label": "Zofran"},
-                {"label": "atenolol"},
-                {"label": "paclitaxel"},
-                {"label": "Ondansetron"},
-                {"label": "Bleomycin"},
-            ],
-            "dosages": [{"label": "8 mg"}, {"label": "50 mg"}],
-            "routes": [{"label": "p.o."}],
-            "durations": [],
-            "frequencies": [
-                {"label": "every 8 hours as needed"},
-                {"label": "daily"},
-            ],
-            "indications": [{"label": "nausea"}, {"label": "hypertension"}],
-            "ades": [{"label": "diarrhea"}, {"label": "fever"}],
-            "severities": [{"label": "severe"}, {"label": "mild"}],
-            "sslifs": [
-                {"label": "fevers"},
-                {"label": "chills"},
-                {"label": "weight loss"},
-                {"label": "Hodgkin lymphoma"},
-            ],
-            "drug_dosage_relations": [
-                {"drug": {"label": "Zofran"}, "dosage": {"label": "8 mg"}},
-                {"drug": {"label": "atenolol"}, "dosage": {"label": "50 mg"}},
-            ],
-            "drug_route_relations": [
-                {"drug": {"label": "Zofran"}, "route": {"label": "p.o."}},
-            ],
-            "drug_frequency_relations": [
-                {"drug": {"label": "Zofran"}, "frequency": {"label": "every 8 hours as needed"}},
-                {"drug": {"label": "atenolol"}, "frequency": {"label": "daily"}},
-            ],
-            "drug_duration_relations": [],
-            "drug_indication_relations": [
-                {"drug": {"label": "Zofran"}, "indication": {"label": "nausea"}},
-                {"drug": {"label": "atenolol"}, "indication": {"label": "hypertension"}},
-            ],
-            "drug_ade_relations": [
-                {"drug": {"label": "paclitaxel"}, "ade": {"label": "diarrhea"}},
-                {"drug": {"label": "paclitaxel"}, "ade": {"label": "fever"}},
-            ],
-            "severity_relations": [
-                {"target": {"label": "diarrhea"}, "severity": {"label": "severe"}},
-                {"target": {"label": "fever"}, "severity": {"label": "mild"}},
-            ],
+    result = run_spires_extraction(
+        template_yaml,
+        text,
+        schema_name="made_1_0",
+        require_valid_schema=True,
+    )
+    outcome = result.get("outcome")
+    if outcome == "REAL_SUCCESS":
+        return {
+            "mode": "real_ontogpt",
+            "outcome": outcome,
+            "extracted_object": result.get("extracted_object") or {},
         }
-        return {"mode": "simulation", "extracted_object": sim, "note": str(e)}
+    if outcome == "SIMULATION_REQUESTED":
+        return {
+            "mode": "simulation",
+            "outcome": outcome,
+            "extracted_object": result.get("extracted_object") or {},
+            "note": result.get("message"),
+        }
+    return {
+        "mode": "real_failed",
+        "outcome": outcome or "REAL_EXTRACTION_FAILED",
+        "extracted_object": {},
+        "error": result.get("message") or result.get("error_type"),
+        "note": "No silent simulation; shared SPIRES contract",
+    }
 
 
 def _label(x: Any) -> str:
@@ -224,7 +186,9 @@ def evaluate(gold: dict, pred: dict) -> dict:
     ent = score_sets([ek(e) for e in gold["entities"]], [ek(e) for e in pred["entities"]])
     rel = score_sets([rk(r) for r in gold["relations"]], [rk(r) for r in pred["relations"]])
     by_type = {}
-    types = sorted({e["type"] for e in gold["entities"]} | {e["type"] for e in pred["entities"]})
+    types = sorted(
+        {e["type"] for e in gold["entities"]} | {e["type"] for e in pred["entities"]}
+    )
     for t in types:
         by_type[t] = score_sets(
             [ek(e) for e in gold["entities"] if e["type"] == t],
@@ -245,12 +209,16 @@ def main() -> int:
     print(f"Template: {TEMPLATE_PATH}")
     print(f"Classes:  {len(schema.get('classes', {}))}")
     print()
+    print("Note: Official MADE test data is request-based (DUA/permissions).")
+    print("      This script is a synthetic pilot only.\n")
 
     result = run_spires(template_yaml, SAMPLE_NOTE)
     print(f"Extraction mode: {result['mode']}")
-    if result.get("note"):
-        print(f"  note: {result['note'][:120]}")
-    pred = spires_to_ann(result["extracted_object"])
+    if result.get("outcome"):
+        print(f"  outcome: {result['outcome']}")
+    if result.get("error") or result.get("note"):
+        print(f"  detail: {(result.get('error') or result.get('note') or '')[:160]}")
+    pred = spires_to_ann(result.get("extracted_object") or {})
     print(f"Predicted entities:  {len(pred['entities'])}")
     print(f"Predicted relations: {len(pred['relations'])}")
     print(f"Gold entities:       {len(GOLD['entities'])}")
@@ -270,21 +238,11 @@ def main() -> int:
         f"  P={rm['precision']:.4f}  R={rm['recall']:.4f}  F1={rm['f1']:.4f}  "
         f"(tp={rm['tp']} fp={rm['fp']} fn={rm['fn']})"
     )
-    print()
-    print("--- Entity F1 by type ---")
-    print(f"{'Type':12} {'P':>7} {'R':>7} {'F1':>7}  tp/fp/fn")
-    for t, s in sorted(metrics["entities_by_type"].items()):
-        print(
-            f"{t:12} {s['precision']:7.3f} {s['recall']:7.3f} {s['f1']:7.3f}  "
-            f"{s['tp']}/{s['fp']}/{s['fn']}"
-        )
 
     e2e_approx = min(em["f1"], rm["f1"])
-
     print()
     print("=" * 60)
-    print("COMPARISON vs MADE 1.0 public baselines")
-    print("(Jagannatha et al., Drug Safety 2019 / MADE challenge overview)")
+    print("COMPARISON vs MADE 1.0 public baselines (reference only)")
     print("=" * 60)
     print(f"{'System':40} {'NER F1':>8} {'RI F1':>8} {'E2E F1':>8}")
     print("-" * 68)
@@ -293,20 +251,15 @@ def main() -> int:
         f"{PUBLIC_BASELINES['RI_best_team']:8.2f} {PUBLIC_BASELINES['E2E_best_team']:8.2f}"
     )
     print(
-        f"{'MADE ensemble (official test)':40} {PUBLIC_BASELINES['NER_ensemble']:8.2f} "
-        f"{PUBLIC_BASELINES['RI_ensemble']:8.2f} {PUBLIC_BASELINES['E2E_ensemble']:8.2f}"
-    )
-    print(
         f"{'agentic-ontogpt SPIRES (this run)*':40} {em['f1']:8.3f} {rm['f1']:8.3f} {e2e_approx:8.3f}"
     )
     print("-" * 68)
     print("* Synthetic single-note pilot (not official MADE test set).")
-    print("  Mode:", result["mode"])
-    print("  Official MADE data is request-based; BioC eval script ships with the release.")
-    print()
+    print("  Mode:", result["mode"], "outcome:", result.get("outcome"))
 
     out = {
         "mode": result["mode"],
+        "outcome": result.get("outcome"),
         "template": str(TEMPLATE_PATH),
         "predicted": pred,
         "gold": GOLD,
@@ -315,7 +268,7 @@ def main() -> int:
         "public_baselines": PUBLIC_BASELINES,
         "disclaimer": (
             "Pilot on synthetic note with MADE-faithful schema. "
-            "Not comparable to official test-set scores without full MADE release."
+            "Not comparable to official test-set scores without full MADE release (DUA)."
         ),
     }
     out_path = REPO / "demos" / "made" / "made_eval_results.json"
